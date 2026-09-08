@@ -4,12 +4,57 @@
 
 @layer base {
   body {
-    background-color: #F8FAF9;
-    color: #191C1E;
+    background: linear-gradient(180deg, #ecfdf5 0%, #ffffff 100%);
+    color: #0c2e1f;
     font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
   }
 }
 
+@layer components {
+  /* Neumorphic card – soft white with diffused shadow */
+  .neu-card {
+    background: rgba(255, 255, 255, 0.80);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 8px 30px rgb(0, 0, 0, 0.04);
+    border-radius: 28px;
+  }
+
+  /* Neumorphic nav bar */
+  .neu-nav {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 4px 20px -2px rgba(6, 78, 59, 0.06);
+  }
+
+  /* Floating pill element */
+  .neu-float {
+    background: rgba(255, 255, 255, 0.70);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 8px 30px rgb(0, 0, 0, 0.08), 0 2px 8px rgb(0, 0, 0, 0.04);
+    border-radius: 9999px;
+  }
+
+  /* Desktop sidebar */
+  .neu-sidebar {
+    background: #022c22;
+    border-radius: 0 28px 28px 0;
+  }
+
+  /* Squircle card variant */
+  .squircle-card {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 8px 30px rgb(0, 0, 0, 0.04);
+    border-radius: 28px;
+    border: 1px solid rgba(236, 253, 245, 0.6);
+  }
+}
+
+/* Preserve legacy class names for backward compat if needed */
 .glass-panel {
   background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(12px);
@@ -29,12 +74,48 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #F2F4F6;
+  background: #F0FDF9;
 }
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: #A7F3D0;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #10B981;
+}
+
+/* Floating bottom nav entrance animation */
+@keyframes floatUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-float-up {
+  animation: floatUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Mobile hero fade overlay */
+.hero-fade-overlay {
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(240, 253, 249, 0.3) 40%,
+    rgba(255, 255, 255, 0.85) 70%,
+    #ffffff 100%
+  );
+}
+
+/* Progress bar fill animation */
+@keyframes fillProgress {
+  from { width: 0%; }
+}
+
+.animate-fill-progress {
+  animation: fillProgress 1.2s ease-out forwards;
 }

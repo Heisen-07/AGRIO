@@ -13,17 +13,19 @@ export default function App() {
 
   return (
     <LanguageProvider>
-      <div className="min-h-screen bg-[#F8FAF9] flex flex-col font-sans">
-        {/* Top Navbar */}
-        <Navbar
-          activeView={activeView}
-          setActiveView={setActiveView}
-          isLoggedIn={isLoggedIn}
-          setIsLoggedIn={setIsLoggedIn}
-        />
+      <div className="min-h-screen bg-white flex flex-col font-sans overflow-x-hidden w-full max-w-full">
+        {/* Top Navbar — hide on desktop dashboard (sidebar replaces it), overlay on landing */}
+        <div className={activeView === 'dashboard' ? 'md:hidden' : activeView === 'landing' ? 'absolute top-0 w-full z-50 bg-transparent' : ''}>
+          <Navbar
+            activeView={activeView}
+            setActiveView={setActiveView}
+            isLoggedIn={isLoggedIn}
+            setIsLoggedIn={setIsLoggedIn}
+          />
+        </div>
 
         {/* Main Content Area */}
-        <main className="flex-1">
+        <main className="flex-1 w-full min-w-0 max-w-full">
           {activeView === 'landing' && (
             <LandingPage
               onExploreDashboard={() => setActiveView('dashboard')}
@@ -44,6 +46,7 @@ export default function App() {
             <Dashboard
               activeTab={activeTab}
               setActiveTab={setActiveTab}
+              setActiveView={setActiveView}
             />
           )}
         </main>

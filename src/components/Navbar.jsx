@@ -18,36 +18,36 @@ export default function Navbar({ activeView, setActiveView, isLoggedIn, setIsLog
   };
 
   return (
-    <header className="glass-nav sticky top-0 z-40 w-full border-b border-surface-border px-4 lg:px-8 py-3.5 flex items-center justify-between transition-all">
+    <header className={`${activeView === 'landing' ? 'bg-transparent shadow-none' : 'neu-nav sticky top-0'} z-40 w-full px-4 lg:px-8 py-3 flex items-center justify-between transition-all`}>
       {/* Brand Logo */}
       <div
         className="flex items-center gap-3 cursor-pointer"
         onClick={() => setActiveView('landing')}
       >
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white shadow-soft-glow">
-          <Sprout className="w-6 h-6" />
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white shadow-neumorphic">
+          <Sprout className="w-5 h-5" />
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <span className="font-extrabold text-xl lg:text-2xl tracking-tight text-forest">
+            <span className="font-extrabold text-xl lg:text-2xl tracking-tight text-emerald-950">
               {t.brandName}
             </span>
-            <span className="hidden sm:inline-block px-2 py-0.5 text-[11px] font-semibold bg-emerald-100 text-emerald-800 rounded-full">
+            <span className="hidden sm:inline-block px-2.5 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded-full">
               AI Powered
             </span>
           </div>
-          <p className="text-xs text-agrio-subtle hidden sm:block">{t.tagline}</p>
+          <p className="text-xs text-emerald-700/60 hidden sm:block">{t.tagline}</p>
         </div>
       </div>
 
       {/* Center Navigation (Desktop) */}
-      <nav className="hidden md:flex items-center gap-1 bg-surface-muted/80 p-1.5 rounded-2xl border border-surface-border">
+      <nav className="hidden md:flex items-center gap-1 bg-white/60 backdrop-blur-sm p-1.5 rounded-full shadow-neumorphic">
         <button
           onClick={() => setActiveView('landing')}
-          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+          className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${
             activeView === 'landing'
-              ? 'bg-white text-emerald-700 shadow-sm'
-              : 'text-gray-600 hover:text-emerald-700'
+              ? 'bg-white text-emerald-800 shadow-sm'
+              : 'text-emerald-700/60 hover:text-emerald-800'
           }`}
         >
           {t.navLanding}
@@ -55,10 +55,10 @@ export default function Navbar({ activeView, setActiveView, isLoggedIn, setIsLog
 
         <button
           onClick={() => setActiveView('dashboard')}
-          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+          className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${
             activeView === 'dashboard'
-              ? 'bg-white text-emerald-700 shadow-sm'
-              : 'text-gray-600 hover:text-emerald-700'
+              ? 'bg-white text-emerald-800 shadow-sm'
+              : 'text-emerald-700/60 hover:text-emerald-800'
           }`}
         >
           {t.navDashboard}
@@ -70,7 +70,7 @@ export default function Navbar({ activeView, setActiveView, isLoggedIn, setIsLog
         {/* Language Toggle Button */}
         <button
           onClick={toggleLanguage}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-surface-border hover:border-emerald-500 hover:text-emerald-700 text-xs font-bold text-gray-700 shadow-sm transition-all active:scale-95"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white text-xs font-bold text-emerald-900 shadow-neumorphic transition-all active:scale-95"
           title="Switch Language"
         >
           <Globe className="w-4 h-4 text-emerald-600" />
@@ -81,10 +81,10 @@ export default function Navbar({ activeView, setActiveView, isLoggedIn, setIsLog
         <div className="relative">
           <button
             onClick={() => setShowNotifications(!showNotifications)}
-            className="relative p-2.5 rounded-xl bg-white border border-surface-border hover:border-emerald-400 text-gray-700 shadow-sm transition-all active:scale-95"
+            className="relative p-2.5 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white text-emerald-900 shadow-neumorphic transition-all active:scale-95"
             aria-label="Notifications"
           >
-            <Bell className="w-5 h-5 text-forest" />
+            <Bell className="w-5 h-5 text-emerald-800" />
             {unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] font-bold flex items-center justify-center animate-pulse">
                 {unreadCount}
@@ -93,9 +93,9 @@ export default function Navbar({ activeView, setActiveView, isLoggedIn, setIsLog
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-lift border border-surface-border p-4 z-50 animate-in fade-in slide-in-from-top-2">
-              <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-3">
-                <h4 className="font-bold text-sm text-forest">Notifications</h4>
+            <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-sm neu-card p-4 z-50 border border-emerald-100/50 shadow-xl">
+              <div className="flex items-center justify-between pb-3 border-b border-emerald-100/40 mb-3">
+                <h4 className="font-bold text-sm text-emerald-950">Notifications</h4>
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllRead}
@@ -109,14 +109,14 @@ export default function Navbar({ activeView, setActiveView, isLoggedIn, setIsLog
                 {notifications.map((n) => (
                   <div
                     key={n.id}
-                    className={`p-3 rounded-xl text-xs transition-colors ${
+                    className={`p-3 rounded-2xl text-xs transition-colors ${
                       n.read
-                        ? 'bg-gray-50 text-gray-600'
-                        : 'bg-emerald-50/60 text-emerald-950 font-medium border-l-4 border-emerald-500'
+                        ? 'bg-emerald-50/40 text-emerald-800/70'
+                        : 'bg-emerald-100/60 text-emerald-950 font-medium border-l-4 border-emerald-500'
                     }`}
                   >
                     <p className="line-clamp-2">{n.text}</p>
-                    <span className="text-[10px] text-gray-400 mt-1 block">{n.time}</span>
+                    <span className="text-[10px] text-emerald-600/50 mt-1 block">{n.time}</span>
                   </div>
                 ))}
               </div>
@@ -127,12 +127,12 @@ export default function Navbar({ activeView, setActiveView, isLoggedIn, setIsLog
         {/* User Account Button */}
         {isLoggedIn ? (
           <div className="flex items-center gap-2 pl-1">
-            <div className="w-9 h-9 rounded-xl bg-forest text-white flex items-center justify-center font-bold text-sm shadow-sm">
+            <div className="w-9 h-9 rounded-full bg-emerald-900 text-white flex items-center justify-center font-bold text-sm shadow-neumorphic">
               R
             </div>
             <button
               onClick={() => setIsLoggedIn(false)}
-              className="hidden sm:flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-medium text-red-600 hover:bg-red-50 transition-all"
+              className="hidden sm:flex items-center gap-1 px-3 py-2 rounded-full text-xs font-medium text-red-600 hover:bg-red-50 transition-all"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -140,7 +140,7 @@ export default function Navbar({ activeView, setActiveView, isLoggedIn, setIsLog
         ) : (
           <button
             onClick={() => setActiveView('login')}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-soft-glow transition-all active:scale-95"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs shadow-neumorphic transition-all active:scale-95"
           >
             <User className="w-4 h-4" />
             <span>{t.navLogin}</span>
