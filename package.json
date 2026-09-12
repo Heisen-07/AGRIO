@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node -e \"const fs = require('fs'); ['node_modules/.bin/vite', 'node_modules/vite/bin/vite.js'].forEach(p => { if (fs.existsSync(p)) { try { fs.chmodSync(p, 0o755); } catch {} } })\"",
     "build": "vite build",
+    "postinstall": "node -e \"const fs = require('fs'); ['node_modules/.bin/vite', 'node_modules/vite/bin/vite.js'].forEach(p => { if (fs.existsSync(p)) { try { fs.chmodSync(p, 0o755); } catch {} } })\"",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
