@@ -1,10 +1,105 @@
 import { GoogleGenAI, Type } from '@google/genai';
+import { assembleResult, deriveFindingsFromFlat, CONFIDENCE_BASIS, CATEGORY, makeFinding } from './visionSchema';
+
+/**
+ * Builds a safe UNKNOWN structured result when cloud AI is unavailable.
+ * Zero fabricated disease, zero fabricated confidence, zero chemical sprays.
+ */
+export function buildCloudUnavailableResult({ lang = 'en' } = {}) {
+  const L = (en, hi) => (lang === 'hi' ? hi : en);
+  const message = L(
+    'Online AI is unavailable. Try again when connected, or use offline CropGuard for supported crops.',
+    'ऑनलाइन AI अनुपलब्ध है। कनेक्ट होने पर पुन: प्रयास करें, या समर्थित फसलों के लिए ऑफ़लाइन CropGuard का उपयोग करें।'
+  );
+  const flat = {
+    disease: L('Cloud AI Unavailable', 'क्लाउड AI अनुपलब्ध'),
+    confidence: null,
+    severity: 'Info',
+    description: message,
+    treatment_steps: [
+      L('Check your network connection or configure VITE_GEMINI_API_KEY in your .env file.', 'अपना नेटवर्क कनेक्शन जांचें या अपनी .env फ़ाइल में VITE_GEMINI_API_KEY कॉन्फ़िगर करें।'),
+      L('For supported crops, offline CropGuard AI runs on-device without internet.', 'समर्थित फसलों के लिए, ऑफ़लाइन CropGuard AI बिना इंटरनेट के डिवाइस पर चलता है।'),
+    ],
+    nutrientDeficiency: {
+      status: L('Not Assessed', 'आकलन नहीं हुआ'),
+      confidence: null,
+      symptoms: L('Online AI diagnosis was unavailable.', 'ऑनलाइन AI निदान अनुपलब्ध था।'),
+      recommendation: L('Reconnect or use offline diagnosis.', 'पुनः कनेक्ट करें या ऑफ़लाइन निदान उपयोग करें।'),
+    },
+    pestPressure: {
+      status: L('Not Assessed', 'आकलन नहीं हुआ'),
+      severity: 'Low',
+      action: L('Reconnect or use offline diagnosis.', 'पुनः कनेक्ट करें या ऑफ़लाइन निदान उपयोग करें।'),
+    },
+    advisory: {
+      sprayStatus: L('Spray Status: Re-scan Required', 'स्प्रे स्थिति: दोबारा स्कैन आवश्यक'),
+      fertilizerAction: L('Fertilizer: Re-scan Required', 'उर्वरक: दोबारा स्कैन आवश्यक'),
+      nextInspection: L('Next Inspection: Re-scan Now', 'अगला निरीक्षण: अभी दोबारा स्कैन करें'),
+    },
+    onDevice: false,
+    engine: 'gemini-cloud',
+    guardrailStatus: 'abstained',
+    guardrailReasons: ['cloud_ai_unavailable'],
+    code: 'CLOUD_AI_UNAVAILABLE',
+    error: 'CLOUD_AI_UNAVAILABLE',
+  };
+
+  const findings = [
+    makeFinding({
+      id: 'gemini-cloud-unavailable',
+      category: CATEGORY.UNKNOWN,
+      title: flat.disease,
+      severity: 'Info',
+      confidence: null,
+      confidenceBasis: CONFIDENCE_BASIS.MODEL_ESTIMATE,
+      description: message,
+      recommendations: flat.treatment_steps,
+    }),
+  ];
+
+  return assembleResult({
+    flat,
+    findings,
+    imageQuality: {
+      code: 'not_assessed',
+      usable: false,
+      note: message,
+    },
+    engine: 'gemini-cloud',
+    onDevice: false,
+    lang,
+  });
+}
 
 // Initialize the Google Gen AI client with the Vite environment variable
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 const isApiKeyValid = apiKey && apiKey !== 'your_api_key_here' && apiKey.trim() !== '';
 
 const ai = new GoogleGenAI({ apiKey: isApiKeyValid ? apiKey : undefined });
+
+/**
+ * Wrap a flat Gemini result in the shared structured schema (findings[],
+ * overallStatus, imageQuality, engine, onDevice, timestamp) WITHOUT altering
+ * any flat field. Gemini findings are `confidenceBasis: 'model_estimate'` — a
+ * model self-report, not a calibrated probability. Image quality is left to the
+ * cloud model, so it is marked 'not_assessed' rather than faked client-side.
+ */
+function toStructured(flat, { engine, lang }) {
+  return assembleResult({
+    flat,
+    findings: deriveFindingsFromFlat(flat, { confidenceBasis: CONFIDENCE_BASIS.MODEL_ESTIMATE }),
+    imageQuality: {
+      code: 'not_assessed',
+      usable: true,
+      note: lang === 'hi'
+        ? 'छवि गुणवत्ता का आकलन क्लाउड मॉडल द्वारा किया जाता है।'
+        : 'Image quality is assessed by the cloud model.',
+    },
+    engine,
+    onDevice: false,
+    lang,
+  });
+}
 
 /**
  * Analyzes a leaf image using Gemini 3.6 Flash model with Structured Outputs.
@@ -29,66 +124,18 @@ export async function analyzeLeafImage(base64Data, lang = 'en') {
     cleanBase64 = parts[1];
   }
 
-  // If no valid API key is set, return a rich demo diagnostic result with all 3 health vectors
+  // If no valid API key is set, return a safe CLOUD_AI_UNAVAILABLE failure (NO fake disease)
   if (!isApiKeyValid) {
-    console.warn('VITE_GEMINI_API_KEY is missing or set to placeholder. Returning demo structured output.');
-    return {
-      disease: lang === 'hi'
-        ? 'पीला रतुआ (येलो रस्ट - Puccinia striiformis)'
-        : 'Yellow Rust (Puccinia striiformis)',
-      confidence: 96.4,
-      severity: 'Moderate',
-      description: lang === 'hi'
-        ? 'पत्तियों पर समानांतर कतारों में चमकीले पीले से नारंगी रंग के फफोले (पुस्ट्यूल) दिखाई दे रहे हैं।'
-        : 'Yellow to orange streak-like pustules arranged in stripe patterns across leaf veins, typical of early stripe rust.',
-      treatment_steps: lang === 'hi'
-        ? [
-            '1. प्रोपिकोनाज़ोल 25% EC @ 1 मिली/लीटर पानी सुबह के समय छिड़कें।',
-            '2. अतिरिक्त आर्द्रता से बचने के लिए खेत में जल निकासी व्यवस्था सुधारें।',
-            '3. अगले 48 घंटों में आसपास के 50 मीटर क्षेत्र की निगरानी करें।'
-          ]
-        : [
-            '1. Spray Propiconazole 25% EC @ 1 ml/Liter water in early morning.',
-            '2. Ensure field drainage to prevent excess humidity buildup.',
-            '3. Monitor adjacent 50m radius plots over next 48 hours.'
-          ],
-      nutrientDeficiency: {
-        status: lang === 'hi'
-          ? 'नाइट्रोजन (N) की कमी - शिराओं के बीच पीलापन'
-          : 'Nitrogen (N) Deficiency - Interveinal Chlorosis',
-        confidence: 88.5,
-        symptoms: lang === 'hi'
-          ? 'पुरानी पत्तियों पर पीलापन एवं हल्का क्लोरोसिस'
-          : 'Pale green to yellowish lower leaves with slight chlorosis',
-        recommendation: lang === 'hi'
-          ? 'सुबह के समय 1.5% यूरिया का पर्णीय छिड़काव करें।'
-          : 'Apply foliar urea spray (1.5%) during early morning.'
-      },
-      pestPressure: {
-        status: lang === 'hi'
-          ? 'माहू (एफिड) का प्रकोप देखा गया (सेक्टर 2)'
-          : 'Early Aphid Cluster Detected (Sector 2)',
-        severity: 'Moderate',
-        action: lang === 'hi'
-          ? 'स्थानीय रूप से नीम तेल घोल (5 मिली/लीटर) का छिड़काव करें; अंधाधुंध कीटनाशक से बचें।'
-          : 'Apply Neem oil emulsion (5ml/L) locally; avoid blanket pesticide usage.'
-      },
-      advisory: {
-        sprayStatus: lang === 'hi'
-          ? 'स्प्रे स्थिति: लक्षित हस्तक्षेप आवश्यक'
-          : 'Spray Status: Targeted Intervention Needed',
-        fertilizerAction: lang === 'hi'
-          ? 'उर्वरक: एनपीके अनुपात समायोजित करें'
-          : 'Fertilizer: Adjust NPK Ratio',
-        nextInspection: lang === 'hi'
-          ? 'अगला निरीक्षण: 48 घंटे'
-          : 'Next Inspection: 48 Hours'
-      },
-      isDemo: true,
-      demoNotice: lang === 'hi'
-        ? 'लाइव AI विश्लेषण के लिए .env फ़ाइल में VITE_GEMINI_API_KEY दर्ज करें।'
-        : 'To enable live Gemini 3.6 Flash analysis, please set VITE_GEMINI_API_KEY in your .env file.'
-    };
+    console.warn('VITE_GEMINI_API_KEY is missing or placeholder. Returning safe cloud-unavailable failure.');
+    return buildCloudUnavailableResult({ lang });
+  }
+
+  // Live analysis requires connectivity — fail fast (and clearly) when offline
+  // so the UI can show a helpful message instead of a slow, cryptic network error.
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    const offlineError = new Error('Offline: live AI diagnosis is unavailable without a connection.');
+    offlineError.offline = true;
+    throw offlineError;
   }
 
   try {
@@ -179,7 +226,7 @@ export async function analyzeLeafImage(base64Data, lang = 'en') {
     if (response.text) {
       const parsed = JSON.parse(response.text);
       // Safe fallback defaulting if negative, clear, or missing properties
-      return {
+      const flat = {
         disease: parsed.disease || (lang === 'hi' ? 'पहचान नहीं हुई / स्वस्थ पत्ती' : 'Healthy Leaf / Undetected'),
         confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 95.0,
         severity: parsed.severity || 'Low',
@@ -204,6 +251,7 @@ export async function analyzeLeafImage(base64Data, lang = 'en') {
           nextInspection: parsed.advisory?.nextInspection || (lang === 'hi' ? 'अगला निरीक्षण: 48 घंटे' : 'Next Inspection: 48 Hours')
         }
       };
+      return toStructured(flat, { engine: 'gemini-cloud', lang });
     } else {
       throw new Error('No structured response received from Gemini API');
     }

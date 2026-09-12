@@ -6,3 +6,6 @@ dist/
 !.env.example
 
 *.timestamp-*.mjs
+.settings.local.json
+.claude
+.vercel

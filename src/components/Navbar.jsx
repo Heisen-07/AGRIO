@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { Sprout, Bell, Globe, User, LogOut, Check } from 'lucide-react';
+import { Sprout, Bell, Globe, Check, Menu } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
+import MobileNavDrawer from './MobileNavDrawer';
+import { getPublicNav } from '../config/navConfig';
 
-export default function Navbar({ activeView, setActiveView, isLoggedIn, setIsLoggedIn }) {
-  const { lang, toggleLanguage, t } = useLanguage();
+export default function Navbar({ activeView, setActiveView }) {
+  const { toggleLanguage, t } = useLanguage();
   const [showNotifications, setShowNotifications] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [notifications, setNotifications] = useState([
-    { id: 1, text: "High humidity alert: Yellow Rust risk increased in Zone A.", time: "10m ago", read: false },
-    { id: 2, text: "Automated irrigation completed for Zone B (450 L).", time: "1h ago", read: false },
+    { id: 1, text: "High humidity alert: Yellow Rust risk increased in main field.", time: "10m ago", read: false },
+    { id: 2, text: "Field soil moisture is nearing its target band — consider irrigation.", time: "1h ago", read: false },
     { id: 3, text: "Weather forecast: Rain expected tomorrow evening.", time: "3h ago", read: true }
   ]);
 
@@ -17,71 +20,71 @@ export default function Navbar({ activeView, setActiveView, isLoggedIn, setIsLog
     setNotifications(notifications.map((n) => ({ ...n, read: true })));
   };
 
+  // Same nav data as the desktop center nav — bound to view navigation.
+  const navItems = getPublicNav(t).map((item) => ({
+    ...item,
+    active: activeView === item.id,
+    onClick: () => setActiveView(item.id),
+  }));
+
   return (
-    <header className={`${activeView === 'landing' ? 'bg-transparent shadow-none' : 'neu-nav sticky top-0'} z-40 w-full px-4 lg:px-8 py-3 flex items-center justify-between transition-all`}>
+    <header className={`${activeView === 'landing' ? 'bg-transparent shadow-none' : 'neu-nav sticky top-0'} z-40 w-full max-w-full box-border px-3 sm:px-4 lg:px-8 py-3 flex items-center justify-between gap-2 sm:gap-3 transition-all`}>
       {/* Brand Logo */}
       <div
-        className="flex items-center gap-3 cursor-pointer"
+        className="flex items-center gap-2 sm:gap-3 cursor-pointer min-w-0 shrink"
         onClick={() => setActiveView('landing')}
       >
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white shadow-neumorphic">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white shadow-neumorphic shrink-0">
           <Sprout className="w-5 h-5" />
         </div>
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-extrabold text-xl lg:text-2xl tracking-tight text-emerald-950">
+            <span className="font-extrabold text-lg sm:text-xl lg:text-2xl tracking-tight text-emerald-950 truncate">
               {t.brandName}
             </span>
-            <span className="hidden sm:inline-block px-2.5 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded-full">
+            <span className="hidden sm:inline-block px-2.5 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded-full shrink-0">
               AI Powered
             </span>
           </div>
-          <p className="text-xs text-emerald-700/60 hidden sm:block">{t.tagline}</p>
+          <p className="text-xs text-emerald-700/60 hidden sm:block truncate">{t.tagline}</p>
         </div>
       </div>
 
       {/* Center Navigation (Desktop) */}
       <nav className="hidden md:flex items-center gap-1 bg-white/60 backdrop-blur-sm p-1.5 rounded-full shadow-neumorphic">
-        <button
-          onClick={() => setActiveView('landing')}
-          className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${
-            activeView === 'landing'
-              ? 'bg-white text-emerald-800 shadow-sm'
-              : 'text-emerald-700/60 hover:text-emerald-800'
-          }`}
-        >
-          {t.navLanding}
-        </button>
-
-        <button
-          onClick={() => setActiveView('dashboard')}
-          className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${
-            activeView === 'dashboard'
-              ? 'bg-white text-emerald-800 shadow-sm'
-              : 'text-emerald-700/60 hover:text-emerald-800'
-          }`}
-        >
-          {t.navDashboard}
-        </button>
+        {navItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={item.onClick}
+            className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${
+              item.active
+                ? 'bg-white text-emerald-800 shadow-sm'
+                : 'text-emerald-700/60 hover:text-emerald-800'
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
       </nav>
 
-      {/* Controls (Language, Notifications, Profile) */}
-      <div className="flex items-center gap-2 lg:gap-3">
-        {/* Language Toggle Button */}
+      {/* Controls (Language, Notifications, Profile, Hamburger) */}
+      <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 min-w-0">
+        {/* Language Toggle — desktop only (moves into the drawer on mobile) */}
         <button
           onClick={toggleLanguage}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white text-xs font-bold text-emerald-900 shadow-neumorphic transition-all active:scale-95"
+          className="hidden md:flex items-center justify-center gap-1.5 min-w-[44px] min-h-[44px] px-3.5 py-2 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white text-xs font-bold text-emerald-900 shadow-neumorphic transition-all active:scale-95 shrink-0"
           title="Switch Language"
+          aria-label="Switch Language"
         >
-          <Globe className="w-4 h-4 text-emerald-600" />
+          <Globe className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>{t.languageSwitch}</span>
         </button>
 
         {/* Notifications Bell */}
-        <div className="relative">
+        <div className="relative shrink-0">
           <button
             onClick={() => setShowNotifications(!showNotifications)}
-            className="relative p-2.5 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white text-emerald-900 shadow-neumorphic transition-all active:scale-95"
+            className="relative flex items-center justify-center min-w-[44px] min-h-[44px] p-2.5 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white text-emerald-900 shadow-neumorphic transition-all active:scale-95"
             aria-label="Notifications"
           >
             <Bell className="w-5 h-5 text-emerald-800" />
@@ -124,29 +127,40 @@ export default function Navbar({ activeView, setActiveView, isLoggedIn, setIsLog
           )}
         </div>
 
-        {/* User Account Button */}
-        {isLoggedIn ? (
-          <div className="flex items-center gap-2 pl-1">
-            <div className="w-9 h-9 rounded-full bg-emerald-900 text-white flex items-center justify-center font-bold text-sm shadow-neumorphic">
-              R
-            </div>
+        {/* Hamburger — mobile only, opens the primary nav drawer */}
+        <button
+          onClick={() => setDrawerOpen(true)}
+          className="md:hidden flex items-center justify-center min-w-[44px] min-h-[44px] p-2.5 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white text-emerald-900 shadow-neumorphic transition-all active:scale-95 shrink-0"
+          aria-label="Open menu"
+          aria-expanded={drawerOpen}
+        >
+          <Menu className="w-6 h-6 text-emerald-900" />
+        </button>
+      </div>
+
+      {/* Mobile Navigation Drawer */}
+      <MobileNavDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title={t.brandName}
+        subtitle={t.tagline}
+        items={navItems}
+        footer={
+          <div className="space-y-2">
+            {/* Language toggle — the only drawer footer action now that auth is removed */}
             <button
-              onClick={() => setIsLoggedIn(false)}
-              className="hidden sm:flex items-center gap-1 px-3 py-2 rounded-full text-xs font-medium text-red-600 hover:bg-red-50 transition-all"
+              onClick={() => {
+                toggleLanguage();
+                setDrawerOpen(false);
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold text-emerald-800 hover:bg-emerald-50 transition-colors min-h-[48px]"
             >
-              <LogOut className="w-4 h-4" />
+              <Globe className="w-5 h-5 text-emerald-500 shrink-0" />
+              <span className="truncate">{t.languageSwitch}</span>
             </button>
           </div>
-        ) : (
-          <button
-            onClick={() => setActiveView('login')}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs shadow-neumorphic transition-all active:scale-95"
-          >
-            <User className="w-4 h-4" />
-            <span>{t.navLogin}</span>
-          </button>
-        )}
-      </div>
+        }
+      />
     </header>
   );
 }
