@@ -142,14 +142,16 @@ export async function analyzeLeafImage(base64Data, lang = 'en') {
     const prompt = lang === 'hi'
       ? `आप एग्रियो (AGRIO) विशेषज्ञ कृषि वैज्ञानिक हैं। दी गई पत्ती की तस्वीर का गहन विश्लेषण करें और निम्नलिखित 3 अलग-अलग कृषि स्वास्थ्य पहलुओं को निकालें:
 1. रोग (disease): रोग का नाम, गंभीरता (Low, Moderate, High, Critical), विवरण, और उपचार कदम।
-2. पोषक तत्वों की कमी (nutrientDeficiency): स्थिति (उदा. 'नाइट्रोजन (N) की कमी - शिराओं के बीच पीलापन' या 'पोषक तत्व स्तर: अनुकूल'), विश्वास स्कोर (0-100), दिखने वाले लक्षण, और 1 वाक्य में लक्षित उर्वरक सिफारिश (उदा. 'सुबह के समय 1.5% यूरिया का पर्णीय छिड़काव करें।')।
-3. कीट दबाव (pestPressure): स्थिति (उदा. 'कोई कीट नहीं पाया गया' या 'माहू (एफिड) का प्रकोप (सेक्टर 2)'), गंभीरता (Low, Moderate, Critical), और लक्षित हस्तक्षेप सलाह (उदा. 'स्थानीय रूप से नीम तेल इमल्शन (5ml/L) लगाएं; अंधाधुंध कीटनाशक से बचें।')।
-4. सलाहकार (advisory): sprayStatus, fertilizerAction, और nextInspection के त्वरित कार्य टैग।`
+2. पोषक तत्वों की कमी (nutrientDeficiency): स्थिति (उदा. 'नाइट्रोजन (N) की कमी - शिराओं के बीच पीलापन' या 'पोषक तत्व स्तर: अनुकूल'), विश्वास स्कोर (0-100), दिखने वाले लक्षण, और 1 वाक्य में लक्षित पोषण सलाह (उदा. 'पत्तियों की निगरानी करें और मृदा परीक्षण की सलाह लें।')।
+3. कीट दबाव (pestPressure): स्थिति (उदा. 'कोई कीट नहीं पाया गया' या 'माहू (एफिड) का प्रकोप'), गंभीरता (Low, Moderate, Critical), और लक्षित हस्तक्षेप सलाह (उदा. 'पत्तियों के नीचे की जाँच करें और स्थानीय कृषि विस्तार मार्गदर्शन का पालन करें।')।
+4. सलाहकार (advisory): sprayStatus, fertilizerAction, और nextInspection के त्वरित कार्य टैग।
+महत्वपूर्ण सुरक्षा नियम: किसी भी रासायनिक कीटनाशक/कवकनाशी/उर्वरक की मनगढ़ंत खुराक दरें (जैसे ml/L, g/L, %) न लिखें। केवल सुरक्षित सांस्कृतिक, निरीक्षण, और उत्पाद लेबल/विस्तार मार्गदर्शन का संदर्भ दें।`
       : `Act as an expert AGRIO agronomist. Deeply analyze the provided leaf image across three distinct agricultural health vectors:
-1. disease: Disease name, severity ('Low', 'Moderate', 'High', 'Critical'), concise description, and actionable organic/chemical treatment steps.
-2. nutrientDeficiency: Deficiency status (e.g., 'Nitrogen (N) Deficiency - Interveinal Chlorosis' or 'Nutrient Levels: Optimal'), confidence score (0-100), visible symptoms, and a 1-sentence targeted fertilizer recommendation (e.g., 'Apply foliar urea spray (1.5%) during early morning').
-3. pestPressure: Infestation status (e.g., 'None Detected' or 'Early Aphid Cluster Detected (Sector 2)'), severity tag ('Low', 'Moderate', 'Critical'), and targeted intervention advice (e.g., 'Apply Neem oil emulsion (5ml/L) locally; avoid blanket pesticide usage.').
-4. advisory: Action pills with sprayStatus (e.g., 'Spray Status: Targeted Intervention Needed'), fertilizerAction (e.g., 'Fertilizer: Adjust NPK Ratio'), and nextInspection (e.g., 'Next Inspection: 48 Hours').`;
+1. disease: Disease name, severity ('Low', 'Moderate', 'High', 'Critical'), concise description, and actionable qualitative treatment steps.
+2. nutrientDeficiency: Deficiency status (e.g., 'Nitrogen (N) Deficiency - Interveinal Chlorosis' or 'Nutrient Levels: Optimal'), confidence score (0-100), visible symptoms, and a 1-sentence qualitative nutrition recommendation (e.g., 'Monitor foliage and consult soil test results before applying fertilizer').
+3. pestPressure: Infestation status (e.g., 'None Detected' or 'Early Aphid Cluster Detected'), severity tag ('Low', 'Moderate', 'Critical'), and targeted qualitative intervention advice (e.g., 'Scout leaf undersides and follow crop-specific local extension guidance').
+4. advisory: Action pills with sprayStatus (e.g., 'Spray Status: Verify Diagnosis First'), fertilizerAction (e.g., 'Fertilizer: Confirm with Soil Test'), and nextInspection (e.g., 'Next Inspection: 48 Hours').
+CRITICAL SAFETY CONSTRAINT: Do NOT provide hardcoded pesticide, fungicide, or fertilizer dosage rates (e.g., never output numbers like '5 ml/L', '1 ml/L', '2 g/L', or percentages). Instead, advise inspecting leaves, scouting leaf undersides, removing damaged tissue, and following the product label and local agricultural extension guidance.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3.6-flash',

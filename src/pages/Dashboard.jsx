@@ -2,9 +2,9 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Droplets, CloudSun, AlertTriangle, CheckCircle, Radio,
-  Wind, Thermometer, CloudRain, Sun, Upload, Camera, Sparkles, X, RefreshCw, Eye, KeyRound,
+  Wind, Thermometer, CloudRain, Sun, Upload, Camera, Sparkles, X, RefreshCw, Eye,
   Sprout, Home, Leaf, Cloud, Sliders, Bug, ShieldAlert, FlaskConical, Clock,
-  Menu, Bell, Globe, WifiOff, Navigation, BarChart3, ExternalLink
+  Menu, Bell, Globe, WifiOff, Navigation, BarChart3
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useFarm } from '../context/FarmContext';
@@ -30,179 +30,288 @@ const CROP_EMOJI_MAP = {
 };
 
 /**
- * Leaf Diagnostic Result Component rendering 3 distinct agricultural health vectors:
- * 1. Disease Diagnostics Badge (name, severity, treatment plan)
- * 2. Nutrient Deficiency Badge & Tag (status, symptoms, 1-sentence fertilizer advice)
- * 3. Pest Infestation & Pressure Badge (risk badge, pattern, targeted action)
- * 4. Actionable Farmer Advisory Protocol (Spray status, Fertilizer, Next inspection)
+ * LeafDiagnosticCard — Single Source of Truth for Farmer-Facing Leaf Diagnosis.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Renders the diagnosis with a clean, honest, non-repetitive hierarchy:
+ *   A. Scan Result Header (crop, overall status, engine badge, confidence/evidence, timestamp)
+ *   B. What AGRIO Found (zero-finding healthy summary OR only categories with actual findings)
+ *   C. What To Do Now (2–4 concise qualitative actions, no chemical dosages)
+ *   D. Risk / Advisory Summary (one concise data-backed summary)
+ *   E. Expert Review (passive text only when condition is severe/uncertain, NO broken CTA)
  */
-function LeafDiagnosticCard({ diagnosticResult, t, severityBadgeClasses, lang = 'en' }) {
+function LeafDiagnosticCard({
+  diagnosticResult,
+  cropName,
+  advisory,
+  risks = [],
+  t,
+  severityBadgeClasses,
+  lang = 'en',
+}) {
   if (!diagnosticResult) return null;
 
-  const isNutrientOptimal = 
-    diagnosticResult.nutrientDeficiency?.status?.toLowerCase().includes('optimal') ||
-    diagnosticResult.nutrientDeficiency?.status?.toLowerCase().includes('none') ||
-    diagnosticResult.nutrientDeficiency?.status?.includes('अनुकूल');
+  const L = (key, fallback) => (t && t[key]) || fallback;
 
-  const pestSeverity = diagnosticResult.pestPressure?.severity || 'Low';
-  const pestBadgeStyle = pestSeverity === 'Critical' || pestSeverity === 'High'
-    ? 'bg-rose-100 text-rose-800 border-rose-300'
-    : pestSeverity === 'Moderate'
-      ? 'bg-amber-100 text-amber-800 border-amber-300'
-      : 'bg-emerald-100 text-emerald-800 border-emerald-300';
+  // ── Engine identity mapping ──
+  let engineBadgeText = L('engineHeuristic', 'Legacy Heuristic — On-device');
+  let engineBadgeStyle = 'bg-slate-100 text-slate-800 border-slate-300';
+  let engineIcon = '📱';
 
-  const isKvkWarranted =
-    diagnosticResult.severity === 'Critical' ||
-    diagnosticResult.severity === 'High' ||
-    diagnosticResult.guardrailStatus === 'abstained' ||
-    (typeof diagnosticResult.confidence === 'number' && diagnosticResult.confidence < 60);
+  if (diagnosticResult.guardrailStatus === 'abstained') {
+    engineBadgeText = L('engineAbstained', 'No reliable diagnosis');
+    engineBadgeStyle = 'bg-amber-100 text-amber-900 border-amber-300';
+    engineIcon = '⚠️';
+  } else if (diagnosticResult.engine === 'gemini-cloud') {
+    engineBadgeText = L('engineGemini', 'Gemini — Online');
+    engineBadgeStyle = 'bg-blue-100 text-blue-900 border-blue-300';
+    engineIcon = '☁️';
+  } else if (diagnosticResult.engine === 'cropguard-onnx') {
+    engineBadgeText = L('engineCropguard', 'CropGuard ONNX — On-device');
+    engineBadgeStyle = 'bg-violet-100 text-violet-900 border-violet-300';
+    engineIcon = '🧬';
+  }
 
-  const confidenceDisplay = typeof diagnosticResult.confidence === 'number'
-    ? (diagnosticResult.confidence > 1 ? `${Math.round(diagnosticResult.confidence)}%` : `${Math.round(diagnosticResult.confidence * 100)}%`)
+  // ── Evidence / Confidence representation ──
+  const isHeuristic = diagnosticResult.engine === 'legacy-heuristic' || diagnosticResult.engine === 'on-device';
+  const confidenceVal = typeof diagnosticResult.confidence === 'number'
+    ? (diagnosticResult.confidence > 1 ? Math.round(diagnosticResult.confidence) : Math.round(diagnosticResult.confidence * 100))
     : null;
 
+  const evidenceDisplay = isHeuristic
+    ? (lang === 'hi' ? 'साक्ष्य शक्ति: मध्यम' : 'Evidence strength: Moderate')
+    : confidenceVal != null
+      ? `${confidenceVal}% ${lang === 'hi' ? 'सटीकता' : 'Confidence'}`
+      : (diagnosticResult.guardrailStatus === 'abstained'
+        ? (lang === 'hi' ? 'अनिर्णायक' : 'Uncertain')
+        : (lang === 'hi' ? 'विश्लेषित' : 'Assessed'));
+
+  // ── Findings categorization ──
+  const diseaseText = (diagnosticResult.disease || '').toLowerCase();
+  const isHealthyFinding =
+    diagnosticResult.guardrailStatus !== 'abstained' &&
+    (diagnosticResult.findings?.some((f) => f.category === 'healthy') ||
+     diseaseText.includes('healthy') ||
+     diseaseText.includes('no disease') ||
+     diseaseText.includes('स्वस्थ'));
+
+  const pestStatus = diagnosticResult.pestPressure?.status || '';
+  const pestSeverity = diagnosticResult.pestPressure?.severity || 'Low';
+  const hasPestFinding =
+    !pestStatus.toLowerCase().includes('none') &&
+    !pestStatus.includes('कोई कीट नहीं') &&
+    !pestStatus.toLowerCase().includes('not assessed') &&
+    (pestSeverity === 'Moderate' || pestSeverity === 'High' || pestSeverity === 'Critical');
+
+  const nutrientStatus = diagnosticResult.nutrientDeficiency?.status || '';
+  const isNutrientOptimal =
+    nutrientStatus.toLowerCase().includes('optimal') ||
+    nutrientStatus.toLowerCase().includes('none') ||
+    nutrientStatus.includes('अनुकूल') ||
+    nutrientStatus.toLowerCase().includes('not assessed');
+  const hasNutrientFinding = !isNutrientOptimal && nutrientStatus.length > 0;
+
+  const hasDiseaseFinding =
+    !isHealthyFinding &&
+    diagnosticResult.disease &&
+    diagnosticResult.guardrailStatus !== 'abstained' &&
+    !diseaseText.includes('stress') &&
+    !diseaseText.includes('unclear');
+
+  const isZeroFinding = isHealthyFinding && !hasPestFinding && !hasNutrientFinding;
+
+  // ── Actions ──
   const treatmentSteps = Array.isArray(diagnosticResult.treatment_steps)
     ? diagnosticResult.treatment_steps.slice(0, 4)
     : [];
 
+  // ── Expert review warranted? ──
+  const isExpertWarranted =
+    diagnosticResult.severity === 'Critical' ||
+    diagnosticResult.severity === 'High' ||
+    diagnosticResult.guardrailStatus === 'abstained' ||
+    (typeof diagnosticResult.confidence === 'number' && confidenceVal < 60);
+
+  // Formatted scan timestamp
+  const scanTime = new Date().toLocaleTimeString(lang === 'hi' ? 'hi-IN' : 'en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
   return (
-    <div className="space-y-3.5 w-full min-w-0 text-left mt-4">
-      {/* Engine Identity Badge */}
-      {diagnosticResult.engine && (
-        <div className={`p-3.5 rounded-2xl text-xs flex items-start gap-2.5 border backdrop-blur-md min-w-0 shadow-2xs ring-1 ring-inset ring-white/40 ${
-          diagnosticResult.engine === 'cropguard-onnx'
-            ? diagnosticResult.guardrailStatus === 'abstained'
-              ? 'bg-amber-50/80 text-amber-950 border-amber-200/80'
-              : 'bg-purple-50/80 text-purple-950 border-purple-200/80'
-            : diagnosticResult.engine === 'on-device'
-              ? 'bg-slate-50/80 text-slate-900 border-slate-200/80'
-              : 'bg-blue-50/80 text-blue-950 border-blue-200/80'
-        }`}>
-          <span className="shrink-0 mt-0.5 text-base">
-            {diagnosticResult.engine === 'cropguard-onnx' ? '🧬' : diagnosticResult.engine === 'on-device' ? '⚡' : '☁️'}
-          </span>
-          <div className="min-w-0 flex-1">
-            <span className="font-bold">
-              {diagnosticResult.engine === 'cropguard-onnx'
-                ? (lang === 'hi' ? 'CropGuard AI (डिवाइस पर न्यूरल नेटवर्क)' : 'CropGuard AI (On-Device Neural Network)')
-                : diagnosticResult.engine === 'on-device'
-                  ? (lang === 'hi' ? 'डिवाइस पर ह्युरिस्टिक इंजन' : 'On-Device Heuristic Engine')
-                  : (lang === 'hi' ? 'क्लाउड AI (Gemini)' : 'Cloud AI (Gemini Multi-Crop)')}
+    <div className="space-y-4 w-full min-w-0 text-left mt-2">
+      {/* ── A. SCAN RESULT HEADER ── */}
+      <div className="bg-white/90 backdrop-blur-md border border-emerald-100/80 rounded-3xl p-4 sm:p-5 shadow-neumorphic ring-1 ring-inset ring-white/60">
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <span className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-sm shadow-2xs">
+              <Sprout className="w-4 h-4" />
             </span>
-            {diagnosticResult.demoNotice && (
-              <p className="mt-0.5 text-[11px] text-slate-600 leading-snug break-words">{diagnosticResult.demoNotice}</p>
-            )}
-            {diagnosticResult.guardrailStatus === 'abstained' && diagnosticResult.guardrailReasons?.length > 0 && (
-              <p className="mt-1 font-semibold text-amber-800 text-[11px] break-words">
-                {lang === 'hi' ? 'कारण: ' : 'Reason: '}
-                {diagnosticResult.guardrailReasons.map((r) => r.replace(/_/g, ' ')).join(', ')}
+            <div>
+              <h3 className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">
+                {cropName || diagnosticResult.cropName || 'Crop'}
+              </h3>
+              <p className="text-[11px] text-slate-500 font-medium">
+                {L('cropAssessmentBadge', 'Multi-signal crop assessment')} • {scanTime}
               </p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 3 Dedicated Compact Visual Cards (Single-column mobile, 3 columns desktop) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full min-w-0">
-        {/* 1. Disease Diagnostics Card */}
-        <div className="bg-amber-50/50 border border-amber-200/80 backdrop-blur-sm rounded-2xl p-4 shadow-2xs flex flex-col justify-between min-w-0 ring-1 ring-inset ring-white/50">
-          <div>
-            <div className="flex items-center justify-between gap-1.5 mb-2 min-w-0">
-              <span className="text-[10px] font-bold text-amber-900/70 uppercase tracking-wider flex items-center gap-1.5 truncate">
-                <Leaf className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                {lang === 'hi' ? 'रोग' : 'DISEASE'}
-              </span>
-              <span className={`px-2 py-0.5 font-bold text-[10px] rounded-full border shadow-2xs shrink-0 ${severityBadgeClasses[diagnosticResult.severity] || severityBadgeClasses.Moderate}`}>
-                {diagnosticResult.severity}
-              </span>
             </div>
-
-            <h4 className="font-bold text-base text-slate-900 mb-1 leading-snug break-words min-w-0">
-              {diagnosticResult.disease}
-            </h4>
-
-            {diagnosticResult.description ? (
-              <p className="text-xs text-slate-700 leading-relaxed break-words min-w-0 mt-1">
-                {diagnosticResult.description}
-              </p>
-            ) : null}
           </div>
 
-          <div className="mt-2.5 pt-2 border-t border-amber-200/60 flex items-center justify-between text-[11px] text-amber-900/80 font-medium">
-            <span>{confidenceDisplay ? `${lang === 'hi' ? 'विश्वास' : 'Confidence'}: ${confidenceDisplay}` : 'Diagnosed'}</span>
-            <span className="font-semibold">{diagnosticResult.severity} Risk</span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {/* Engine Badge */}
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-2xs ${engineBadgeStyle}`}>
+              <span>{engineIcon}</span>
+              <span>{engineBadgeText}</span>
+            </span>
+
+            {/* Severity / Evidence Level */}
+            <span className={`px-2.5 py-1 rounded-full text-xs font-bold border shadow-2xs ${severityBadgeClasses[diagnosticResult.severity] || severityBadgeClasses.Moderate}`}>
+              {diagnosticResult.severityLabel || diagnosticResult.severity || 'Normal'}
+            </span>
           </div>
         </div>
 
-        {/* 2. Pest Pressure Card */}
-        <div className="bg-orange-50/40 border border-orange-200/70 backdrop-blur-sm rounded-2xl p-4 shadow-2xs flex flex-col justify-between min-w-0 ring-1 ring-inset ring-white/50">
-          <div>
-            <div className="flex items-center justify-between gap-1.5 mb-2 min-w-0">
-              <span className="text-[10px] font-bold text-orange-900/70 uppercase tracking-wider flex items-center gap-1.5 truncate">
-                <Bug className="w-3.5 h-3.5 text-orange-700 shrink-0" />
-                {lang === 'hi' ? 'कीट' : 'PEST'}
-              </span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border shadow-2xs shrink-0 ${pestBadgeStyle}`}>
-                {pestSeverity}
-              </span>
-            </div>
+        {/* Evidence note */}
+        <div className="flex items-center justify-between mt-2.5 text-xs text-slate-600 font-medium">
+          <span className="font-semibold text-slate-700">{evidenceDisplay}</span>
+          {diagnosticResult.modelVersion && (
+            <span className="text-[10px] text-slate-400">{diagnosticResult.modelVersion}</span>
+          )}
+        </div>
 
-            <h4 className="font-bold text-base text-slate-900 mb-1 leading-snug break-words min-w-0">
-              {diagnosticResult.pestPressure?.status || (lang === 'hi' ? 'कोई कीट नहीं पाया गया' : 'None Detected')}
-            </h4>
+        {/* Fallback Notice: Compact status line when online AI failed and fell back to on-device */}
+        {diagnosticResult.cloudFallback && (
+          <div className="mt-3 py-1.5 px-3 rounded-xl bg-amber-50/90 border border-amber-200/70 flex items-center gap-2 text-xs font-medium text-amber-900">
+            <Radio className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+            <span className="truncate">
+              {diagnosticResult.fallbackMessage || L('cloudFallbackNotice', 'Online AI unavailable • using on-device analysis')}
+            </span>
+          </div>
+        )}
 
-            <p className="text-xs text-slate-700 leading-relaxed break-words min-w-0 mt-1">
-              {diagnosticResult.pestPressure?.action || (pestSeverity === 'Low'
-                ? (lang === 'hi' ? 'पत्तियों पर कोई गंभीर कीट क्षति नहीं दिखी।' : 'No active foliar pest damage detected.')
-                : (lang === 'hi' ? 'सक्रिय कीट पैटर्न देखा गया।' : 'Active pest pressure noted.'))}
+        {/* Abstention Reason Message */}
+        {diagnosticResult.guardrailStatus === 'abstained' && (
+          <div className="mt-3 p-3 rounded-2xl bg-amber-50/80 border border-amber-200 text-xs text-amber-950">
+            <p className="font-bold flex items-center gap-1.5 text-amber-900 mb-1">
+              <AlertTriangle className="w-4 h-4 text-amber-700" />
+              <span>{diagnosticResult.disease}</span>
+            </p>
+            <p className="text-slate-700 leading-relaxed">
+              {diagnosticResult.description || L('expertReviewBody', 'AI confidence is low or condition is uncertain.')}
             </p>
           </div>
-
-          <div className="mt-2.5 pt-2 border-t border-orange-200/60 text-[11px] text-slate-500 font-medium">
-            <span>{pestSeverity === 'Low' ? (lang === 'hi' ? 'स्थिति सामान्य' : 'Status: Optimal') : 'Intervention advised'}</span>
-          </div>
-        </div>
-
-        {/* 3. Nutrient Observation Card */}
-        <div className="bg-emerald-50/50 border border-emerald-200/80 backdrop-blur-sm rounded-2xl p-4 shadow-2xs flex flex-col justify-between min-w-0 ring-1 ring-inset ring-white/50">
-          <div>
-            <div className="flex items-center justify-between gap-1.5 mb-2 min-w-0">
-              <span className="text-[10px] font-bold text-emerald-900/70 uppercase tracking-wider flex items-center gap-1.5 truncate">
-                <FlaskConical className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                {lang === 'hi' ? 'पोषक तत्व अवलोकन' : 'NUTRIENT OBSERVATION'}
-              </span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border shadow-2xs shrink-0 ${
-                isNutrientOptimal 
-                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
-                  : 'bg-amber-100 text-amber-800 border-amber-300'
-              }`}>
-                {isNutrientOptimal ? 'Optimal' : 'Observed'}
-              </span>
-            </div>
-
-            <h4 className="font-bold text-base text-slate-900 mb-1 leading-snug break-words min-w-0">
-              {diagnosticResult.nutrientDeficiency?.status || (isNutrientOptimal ? 'Nutrient Levels: Optimal' : 'Possible Nutrient Symptoms')}
-            </h4>
-
-            <p className="text-xs text-slate-700 leading-relaxed break-words min-w-0 mt-1">
-              {diagnosticResult.nutrientDeficiency?.symptoms || 'Visual foliage appearance is within normal parameters.'}
-            </p>
-          </div>
-
-          <div className="mt-2.5 pt-2 border-t border-emerald-200/60">
-            <p className="text-[10px] text-emerald-800/80 italic leading-tight">
-              {lang === 'hi' ? 'केवल दृश्य लक्षण — प्रयोगशाला मृदा परीक्षण नहीं' : 'Visual symptoms only — not a soil test'}
-            </p>
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* WHAT TO DO NOW (Farmer Action Section) */}
+      {/* ── B. WHAT AGRIO FOUND ── */}
+      <div className="bg-white/80 backdrop-blur-md border border-emerald-100/80 rounded-3xl p-4 sm:p-5 shadow-neumorphic ring-1 ring-inset ring-white/60">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-7 h-7 rounded-xl bg-emerald-50 border border-emerald-200/60 flex items-center justify-center shrink-0 text-emerald-700 shadow-2xs">
+            <Eye className="w-4 h-4" />
+          </div>
+          <h4 className="font-bold text-sm sm:text-base text-slate-900 truncate">
+            {L('whatAgrioFound', 'What AGRIO Found')}
+          </h4>
+        </div>
+
+        {/* Zero-finding State: Compact single card for healthy leaves */}
+        {isZeroFinding ? (
+          <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/60 p-4 flex items-start gap-3 shadow-2xs">
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 mt-0.5">
+              <CheckCircle className="w-5 h-5 text-emerald-700" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h5 className="font-bold text-sm text-emerald-950">
+                {L('zeroFindingHealthyTitle', 'Healthy / No visible disease detected')}
+              </h5>
+              <p className="text-xs text-emerald-800/80 mt-1 leading-relaxed break-words">
+                {L('zeroFindingHealthyBody', 'No visible pest or deficiency symptoms detected.')}
+              </p>
+            </div>
+          </div>
+        ) : (
+          /* Condition findings: ONLY show categories that actually have active findings */
+          <div className="space-y-3">
+            {/* Disease finding */}
+            {hasDiseaseFinding && (
+              <div className="rounded-2xl border border-amber-200/80 bg-amber-50/50 p-4 shadow-2xs">
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900/80 flex items-center gap-1.5">
+                    <Leaf className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                    <span>{lang === 'hi' ? 'रोग' : 'DISEASE'}</span>
+                  </span>
+                  <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${severityBadgeClasses[diagnosticResult.severity] || severityBadgeClasses.Moderate}`}>
+                    {diagnosticResult.severityLabel || diagnosticResult.severity}
+                  </span>
+                </div>
+                <h5 className="font-bold text-sm sm:text-base text-slate-900 leading-snug break-words">
+                  {diagnosticResult.disease}
+                </h5>
+                {diagnosticResult.description && (
+                  <p className="text-xs text-slate-700 mt-1 leading-relaxed break-words">
+                    {diagnosticResult.description}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Pest finding */}
+            {hasPestFinding && (
+              <div className="rounded-2xl border border-orange-200/80 bg-orange-50/50 p-4 shadow-2xs">
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-orange-900/80 flex items-center gap-1.5">
+                    <Bug className="w-3.5 h-3.5 text-orange-700 shrink-0" />
+                    <span>{lang === 'hi' ? 'कीट' : 'PEST'}</span>
+                  </span>
+                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-orange-100 text-orange-900 border border-orange-300">
+                    {pestSeverity}
+                  </span>
+                </div>
+                <h5 className="font-bold text-sm sm:text-base text-slate-900 leading-snug break-words">
+                  {pestStatus}
+                </h5>
+                {diagnosticResult.pestPressure?.action && (
+                  <p className="text-xs text-slate-700 mt-1 leading-relaxed break-words">
+                    {diagnosticResult.pestPressure.action}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Nutrient observation finding (strictly visual observation) */}
+            {hasNutrientFinding && (
+              <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/50 p-4 shadow-2xs">
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-900/80 flex items-center gap-1.5">
+                    <FlaskConical className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                    <span>{L('nutrientObsTitle', 'NUTRIENT OBSERVATION')}</span>
+                  </span>
+                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                    Observed
+                  </span>
+                </div>
+                <h5 className="font-bold text-sm sm:text-base text-slate-900 leading-snug break-words">
+                  {nutrientStatus}
+                </h5>
+                {diagnosticResult.nutrientDeficiency?.symptoms && (
+                  <p className="text-xs text-slate-700 mt-1 leading-relaxed break-words">
+                    {diagnosticResult.nutrientDeficiency.symptoms}
+                  </p>
+                )}
+                <p className="text-[10px] text-emerald-800/80 italic mt-2 pt-2 border-t border-emerald-200/60">
+                  {L('nutrientVisualNote', 'Visual symptoms only — not a laboratory soil test')}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── C. WHAT TO DO NOW (Farmer Action Section) ── */}
       {treatmentSteps.length > 0 && (
-        <div className="bg-white/80 backdrop-blur-md border border-emerald-100/80 rounded-2xl p-4 sm:p-5 min-w-0 shadow-2xs ring-1 ring-inset ring-white/50">
+        <div className="bg-white/80 backdrop-blur-md border border-emerald-100/80 rounded-3xl p-4 sm:p-5 shadow-neumorphic ring-1 ring-inset ring-white/60">
           <p className="font-bold text-xs text-emerald-950 uppercase tracking-wider mb-2.5 flex items-center gap-2">
-            <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 text-xs font-bold">✓</div>
-            <span>{t.whatToDoNow || 'WHAT TO DO NOW'}</span>
+            <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 text-xs font-bold">✓</span>
+            <span>{L('whatToDoNow', 'WHAT TO DO NOW')}</span>
           </p>
           <ul className="space-y-2 text-xs sm:text-sm text-slate-800 font-medium">
             {treatmentSteps.map((step, idx) => (
@@ -215,78 +324,55 @@ function LeafDiagnosticCard({ diagnosticResult, t, severityBadgeClasses, lang = 
         </div>
       )}
 
-      {/* Actionable Protocol Pills (Spray, Fertilizer, Next Inspection) */}
-      {diagnosticResult.advisory && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 min-w-0">
-          <div className="bg-white/80 backdrop-blur-md border border-emerald-100 rounded-2xl p-3 flex items-center gap-2.5 min-w-0 shadow-2xs ring-1 ring-inset ring-white/50">
-            <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-700 border border-sky-200/60 flex items-center justify-center shrink-0 shadow-2xs">
-              <Droplets className="w-4 h-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] uppercase font-bold text-sky-900/60 tracking-wider truncate">
-                {t.sprayStatusLabel || 'Spray Status'}
-              </p>
-              <p className="text-xs font-bold text-slate-900 truncate">
-                {diagnosticResult.advisory.sprayStatus || 'Verify Diagnosis First'}
-              </p>
-            </div>
+      {/* ── D. ADVISORY SUMMARY & RISK / IRRIGATION (Data-backed context) ── */}
+      {advisory?.overallStatus && (
+        <div className="bg-white/80 backdrop-blur-md border border-emerald-100/80 rounded-3xl p-4 sm:p-5 shadow-neumorphic ring-1 ring-inset ring-white/60">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="w-4 h-4 text-emerald-700 shrink-0" />
+            <span className="text-xs font-bold text-emerald-950 uppercase tracking-wider">
+              {L('adviceBoardTitle', 'AGRIO Advisory Summary')}
+            </span>
           </div>
+          <p className="text-xs sm:text-sm font-semibold text-slate-900 leading-snug">
+            {advisory.overallStatus.headline}
+          </p>
+          {advisory.overallStatus.summary && (
+            <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+              {advisory.overallStatus.summary}
+            </p>
+          )}
 
-          <div className="bg-white/80 backdrop-blur-md border border-emerald-100 rounded-2xl p-3 flex items-center gap-2.5 min-w-0 shadow-2xs ring-1 ring-inset ring-white/50">
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/60 flex items-center justify-center shrink-0 shadow-2xs">
-              <FlaskConical className="w-4 h-4" />
+          {/* Active Risk Alerts (if any) */}
+          {Array.isArray(risks) && risks.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-slate-100 space-y-1.5">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                {L('riskSectionTitle', 'Active Risks')}
+              </span>
+              {risks.slice(0, 2).map((r) => (
+                <div key={r.id} className="flex items-start gap-2 text-xs text-slate-800">
+                  <span className="text-amber-600 mt-0.5">⚠️</span>
+                  <span className="font-medium">{r.title}</span>
+                </div>
+              ))}
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] uppercase font-bold text-emerald-900/60 tracking-wider truncate">
-                {t.fertilizerActionLabel || 'Fertilizer'}
-              </p>
-              <p className="text-xs font-bold text-slate-900 truncate">
-                {diagnosticResult.advisory.fertilizerAction || 'Confirm with Soil Test'}
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-white/80 backdrop-blur-md border border-emerald-100 rounded-2xl p-3 flex items-center gap-2.5 min-w-0 shadow-2xs ring-1 ring-inset ring-white/50">
-            <div className="w-8 h-8 rounded-xl bg-cyan-50 text-cyan-700 border border-cyan-200/60 flex items-center justify-center shrink-0 shadow-2xs">
-              <Clock className="w-4 h-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] uppercase font-bold text-cyan-900/60 tracking-wider truncate">
-                {t.nextInspectionLabel || 'Next Inspection'}
-              </p>
-              <p className="text-xs font-bold text-slate-900 truncate">
-                {diagnosticResult.advisory.nextInspection || '48 Hours'}
-              </p>
-            </div>
-          </div>
+          )}
         </div>
       )}
 
-      {/* CONDITIONAL EXPERT / KVK REFERRAL (Only shown when warranted) */}
-      {isKvkWarranted && (
-        <div className="rounded-2xl border border-purple-200/80 bg-gradient-to-r from-purple-50/90 via-white/85 to-blue-50/90 backdrop-blur-md p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 min-w-0 shadow-2xs ring-1 ring-inset ring-white/50">
-          <div className="flex items-start gap-2.5 min-w-0 flex-1">
-            <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 border border-purple-200 flex items-center justify-center shrink-0 shadow-2xs">
-              <AlertTriangle className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <h5 className="font-bold text-xs sm:text-sm text-purple-950">
-                {t.expertReviewTitle || 'Expert Review Recommended'}
-              </h5>
-              <p className="text-xs text-purple-900/80 mt-0.5 break-words">
-                {t.expertReviewBody || 'AI confidence is low or the condition is severe. Consult your nearest Krishi Vigyan Kendra (KVK).'}
-              </p>
-            </div>
+      {/* ── E. EXPERT REVIEW (Passive text only when condition is severe/uncertain) ── */}
+      {isExpertWarranted && (
+        <div className="rounded-3xl border border-purple-200/80 bg-gradient-to-r from-purple-50/90 via-white/85 to-blue-50/90 backdrop-blur-md p-4 sm:p-5 shadow-neumorphic ring-1 ring-inset ring-white/60 flex items-start gap-3.5 w-full min-w-0">
+          <div className="w-9 h-9 rounded-2xl bg-purple-100 border border-purple-200 text-purple-700 flex items-center justify-center shrink-0 shadow-2xs">
+            <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
-          <a
-            href="https://kvk.icar.gov.in/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-purple-800 hover:bg-purple-900 text-white text-xs font-bold shadow-xs hover:shadow-md hover:-translate-y-0.5 active:scale-95 transition-all duration-200 shrink-0 min-h-[38px] cursor-pointer focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:outline-none"
-          >
-            <span>{t.findKvkBtn || 'Find Nearest KVK'}</span>
-            <ExternalLink className="w-3 h-3" />
-          </a>
+          <div className="min-w-0 flex-1">
+            <h5 className="font-bold text-xs sm:text-sm text-purple-950 leading-snug">
+              {L('expertReviewTitle', 'Expert Review Recommended')}
+            </h5>
+            <p className="text-xs text-purple-900/80 mt-1 leading-relaxed break-words">
+              {L('expertReviewBody', 'AI confidence is low or the condition is severe. AGRIO will support local agricultural expert referral when the verified KVK directory is integrated.')}
+            </p>
+          </div>
         </div>
       )}
     </div>
@@ -363,7 +449,6 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
   // Diagnostic State Hooks
   const [imagePreview, setImagePreview] = useState(null);
   const [diagnosing, setDiagnosing] = useState(false);
-  const [showInsights, setShowInsights] = useState(false);
   const [diagnosticResult, setDiagnosticResult] = useState(null);
   const [scanError, setScanError] = useState(null);
 
@@ -528,7 +613,6 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
     try {
       const result = await diagnoseLeaf(dataToAnalyze, lang, { cropName });
       setDiagnosticResult(result);
-      setShowInsights(true);
       if (result) {
         try {
           await saveDiagnosisRecord(activeFarm?.id || 'demo_farm', {
@@ -543,8 +627,11 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
     } catch (err) {
       console.error('Diagnostic error:', err);
       const isOffline = err?.offline || (typeof navigator !== 'undefined' && !navigator.onLine);
-      setScanError(isOffline ? t.offlineScanNotice : (err.message || 'Failed to connect to Gemini AI Service.'));
-      setShowInsights(true);
+      const isNetworkErr = isOffline || (err?.message && (err.message.includes('fetch') || err.message.includes('network') || err.message.includes('Failed to fetch')));
+      const fallbackErrText = lang === 'hi'
+        ? 'ऑनलाइन एआई सेवा उपलब्ध नहीं हो सकी। कृपया दोबारा प्रयास करें।'
+        : 'Cloud AI service temporarily unavailable. Please try again.';
+      setScanError(isNetworkErr ? (t?.offlineScanNotice || fallbackErrText) : (err.message && !err.message.includes('fetch') ? err.message : fallbackErrText));
     } finally {
       setDiagnosing(false);
     }
@@ -1078,16 +1165,6 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                   onNavigateTab={setActiveTab}
                   diagnosticResult={diagnosticResult}
                 />
-
-                {/* If a scan exists, show its diagnostic card beneath the advisory */}
-                {diagnosticResult && (
-                  <LeafDiagnosticCard
-                    diagnosticResult={diagnosticResult}
-                    t={t}
-                    severityBadgeClasses={severityBadgeClasses}
-                    lang={lang}
-                  />
-                )}
 
                 {/* Single active farm — multi-farm switching intentionally deferred */}
                 <p className="text-[10px] text-slate-400/90 italic text-center">{t.multiFarmNote}</p>
@@ -2403,26 +2480,19 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                       )}
                     </button>
 
-                    {/* Inline Leaf Diagnostic Card on Mobile */}
+                    {/* Inline Unified Leaf Diagnostic Card on Mobile */}
                     {diagnosticResult && (
-                      <>
-                        <AdviceBoard advisory={advisory} risks={risks} t={t} lang={lang} />
+                      <div className="mt-6">
                         <LeafDiagnosticCard
                           diagnosticResult={diagnosticResult}
+                          cropName={cropName}
+                          advisory={advisory}
+                          risks={risks}
                           t={t}
+                          lang={lang}
                           severityBadgeClasses={severityBadgeClasses}
                         />
-                      </>
-                    )}
-
-                    {imagePreview && diagnosticResult && !showInsights && (
-                      <button
-                        onClick={() => setShowInsights(true)}
-                        className="mt-3 w-full py-2.5 rounded-full bg-emerald-100/80 text-emerald-900 font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-emerald-200/80 transition-all cursor-pointer border border-emerald-200/60"
-                      >
-                        <Eye className="w-4 h-4 text-emerald-700" />
-                        <span>{t.insightsTitle || 'View Diagnostic Report'}</span>
-                      </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -2524,98 +2594,25 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                         </button>
                       </div>
 
-                      {/* Right: Results & Match Percentage */}
+                      {/* Right: Unified Diagnostic Results */}
                       <div className="flex flex-col gap-4">
                         {diagnosticResult ? (
-                          <>
-                            {/* Match Percentage Visual */}
-                            <div className="bg-emerald-50/60 rounded-3xl p-5 text-center">
-                              <p className="text-[10px] font-bold text-emerald-700/50 uppercase tracking-wider mb-2">{t.matchPercentage}</p>
-                              <div className="w-24 h-24 rounded-full mx-auto relative">
-                                <svg className="w-full h-full transform -rotate-90">
-                                  <circle cx="48" cy="48" r="42" stroke="#D1FAE5" strokeWidth="8" fill="transparent" />
-                                  <circle
-                                    cx="48" cy="48" r="42"
-                                    stroke="#059669"
-                                    strokeWidth="8"
-                                    strokeDasharray={`${2 * Math.PI * 42}`}
-                                    strokeDashoffset={`${2 * Math.PI * 42 * (1 - (diagnosticResult.confidence > 1 ? diagnosticResult.confidence / 100 : diagnosticResult.confidence))}`}
-                                    strokeLinecap="round"
-                                    fill="transparent"
-                                  />
-                                </svg>
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                  <span className="text-xl font-extrabold text-emerald-950">
-                                    {typeof diagnosticResult.confidence === 'number'
-                                      ? (diagnosticResult.confidence > 1 ? diagnosticResult.confidence.toFixed(1) : (diagnosticResult.confidence * 100).toFixed(1)) + '%'
-                                      : '96.4%'}
-                                  </span>
-                                </div>
-                              </div>
-                              <p className="text-xs font-bold text-emerald-800 mt-2">AI Confidence Match</p>
-                            </div>
-
-                            {/* Engine Identity + Guardrail Status */}
-                            {diagnosticResult.engine && (
-                              <div className={`p-3 rounded-2xl text-xs flex items-start gap-2 ${
-                                diagnosticResult.engine === 'cropguard-onnx'
-                                  ? diagnosticResult.guardrailStatus === 'abstained'
-                                    ? 'bg-amber-50/80 text-amber-900'
-                                    : 'bg-violet-50/80 text-violet-900'
-                                  : diagnosticResult.engine === 'on-device'
-                                    ? 'bg-slate-50/80 text-slate-800'
-                                    : 'bg-blue-50/80 text-blue-900'
-                              }`}>
-                                <span className="shrink-0 mt-0.5">
-                                  {diagnosticResult.engine === 'cropguard-onnx' ? '🧬'
-                                    : diagnosticResult.engine === 'on-device' ? '📱' : '☁️'}
-                                </span>
-                                <div>
-                                  <span className="font-semibold">
-                                    {diagnosticResult.engine === 'cropguard-onnx' ? 'CropGuard AI (On-Device)'
-                                      : diagnosticResult.engine === 'on-device' ? 'On-Device Heuristic'
-                                      : 'Cloud AI (Gemini)'}
-                                  </span>
-                                  {diagnosticResult.demoNotice && (
-                                    <p className="mt-0.5 opacity-80">{diagnosticResult.demoNotice}</p>
-                                  )}
-                                  {diagnosticResult.guardrailStatus === 'abstained' && diagnosticResult.guardrailReasons?.length > 0 && (
-                                    <p className="mt-1 font-medium text-amber-800">
-                                      {lang === 'hi' ? 'कारण: ' : 'Reason: '}
-                                      {diagnosticResult.guardrailReasons.map(r => r.replace(/_/g, ' ')).join(', ')}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Summary Badge */}
-                            <div className="p-4 bg-emerald-50/70 border border-emerald-200/60 rounded-2xl flex items-center justify-between shadow-neumorphic">
-                              <div className="flex items-center gap-2.5">
-                                <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
-                                  <Sparkles className="w-5 h-5 text-emerald-700" />
-                                </div>
-                                <div>
-                                  <p className="text-[10px] font-bold text-emerald-800/60 uppercase tracking-wider">AI Crop Health Diagnostics</p>
-                                  <p className="text-xs font-extrabold text-emerald-950">Disease, Nutrient & Pest Tri-Vector Verified</p>
-                                </div>
-                              </div>
-                              <span className={`px-2.5 py-1 font-bold text-[11px] rounded-full border shadow-sm ${severityBadgeClasses[diagnosticResult.severity] || severityBadgeClasses.Moderate}`}>
-                                {diagnosticResult.severity}
-                              </span>
-                            </div>
-                          </>
+                          <LeafDiagnosticCard
+                            diagnosticResult={diagnosticResult}
+                            cropName={cropName}
+                            advisory={advisory}
+                            risks={risks}
+                            t={t}
+                            lang={lang}
+                            severityBadgeClasses={severityBadgeClasses}
+                          />
                         ) : scanError ? (
                           <div className="p-5 bg-red-50/80 rounded-3xl text-left space-y-2">
                             <div className="flex items-center gap-2 text-red-800 font-bold text-sm">
                               <AlertTriangle className="w-5 h-5" />
-                              <span>Gemini AI Analysis Error</span>
+                              <span>{lang === 'hi' ? 'निदान सूचना' : 'Diagnostic Notice'}</span>
                             </div>
                             <p className="text-xs text-red-700">{scanError}</p>
-                            <div className="pt-2 text-[11px] text-red-600 border-t border-red-100 flex items-center gap-1.5">
-                              <KeyRound className="w-4 h-4 shrink-0" />
-                              <span>Check your <code className="bg-red-100 px-1 py-0.5 rounded">.env</code> file for <code className="bg-red-100 px-1 py-0.5 rounded">VITE_GEMINI_API_KEY</code>.</span>
-                            </div>
                           </div>
                         ) : (
                           <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-emerald-50/30 rounded-3xl">
@@ -2628,18 +2625,6 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                         )}
                       </div>
                     </div>
-
-                    {/* Dedicated Leaf Diagnostic Result Card Spanning Full Width Below Preview */}
-                    {diagnosticResult && (
-                      <>
-                        <AdviceBoard advisory={advisory} risks={risks} t={t} lang={lang} />
-                        <LeafDiagnosticCard
-                          diagnosticResult={diagnosticResult}
-                          t={t}
-                          severityBadgeClasses={severityBadgeClasses}
-                        />
-                      </>
-                    )}
                   </div>
                 </div>
 
@@ -2687,7 +2672,6 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                               if (item.thumbnail || rec.imagePreview) {
                                 setImagePreview(item.thumbnail || rec.imagePreview);
                               }
-                              setShowInsights(true);
                             }}
                             className="bg-white/90 hover:bg-white border border-emerald-100/80 hover:border-emerald-300/80 rounded-2xl p-3.5 flex items-center gap-3 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] shadow-2xs group ring-1 ring-inset ring-white/50"
                           >
@@ -2705,7 +2689,7 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between gap-1">
                                 <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${severityClass}`}>
-                                  {rec.severity || 'Verified'}
+                                  {rec.severity || 'Assessed'}
                                 </span>
                                 <span className="text-[10px] text-emerald-700/60">{dateStr}</span>
                               </div>
@@ -2713,7 +2697,7 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                                 {rec.diseaseDiagnostics?.detectedName || rec.cropCondition || 'Healthy Leaf'}
                               </h5>
                               <p className="text-[10px] text-emerald-600/80 truncate">
-                                {rec.confidence ? `${(rec.confidence > 1 ? rec.confidence : rec.confidence * 100).toFixed(0)}% match` : 'AI Verified'}
+                                {rec.confidence ? `${(rec.confidence > 1 ? rec.confidence : rec.confidence * 100).toFixed(0)}% match` : 'AI Assessed'}
                               </p>
                             </div>
                           </div>
@@ -2748,162 +2732,6 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
           </AnimatePresence>
         </div>
       </div>
-
-      {/* Slide-Up Agrio Insights Result Sheet Modal (Mobile) */}
-      <AnimatePresence>
-        {showInsights && (
-          <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/30 backdrop-blur-md p-0 md:p-4">
-            <motion.div
-              initial={{ y: "100%", opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: "100%", opacity: 0 }}
-              transition={{ type: "spring", damping: 25, stiffness: 250 }}
-              className="bg-white/95 backdrop-blur-sm w-full sm:max-w-2xl md:max-w-3xl lg:max-w-4xl rounded-t-[36px] md:rounded-3xl shadow-neumorphic-lg p-5 sm:p-7 max-h-[92vh] overflow-y-auto"
-            >
-              {/* Header */}
-              <div className="flex items-center justify-between pb-4 border-b border-emerald-100/40 mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                    <Sparkles className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-extrabold text-base text-emerald-950">{t.insightsTitle}</h3>
-                    <p className="text-[10px] text-emerald-600/40 font-medium">Powered by Gemini 3.6 Flash</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowInsights(false)}
-                  className="p-1.5 rounded-full hover:bg-emerald-50 text-emerald-600/50"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Image Preview Thumbnail */}
-              {imagePreview && (
-                <div className="mb-4 rounded-2xl overflow-hidden max-h-36 bg-emerald-50/20 flex items-center justify-center">
-                  <img src={imagePreview} alt="Scanned Leaf" className="w-full h-full object-cover max-h-36" />
-                </div>
-              )}
-
-              {/* Match Percentage Visual (Mobile modal) */}
-              {diagnosticResult && (
-                <div className="mb-4 bg-emerald-50/60 rounded-2xl p-4 text-center">
-                  <p className="text-[10px] font-bold text-emerald-700/50 uppercase tracking-wider mb-2">{t.matchPercentage}</p>
-                  <div className="flex items-center justify-center gap-4">
-                    <div className="w-16 h-16 rounded-full relative">
-                      <svg className="w-full h-full transform -rotate-90">
-                        <circle cx="32" cy="32" r="28" stroke="#D1FAE5" strokeWidth="6" fill="transparent" />
-                        <circle
-                          cx="32" cy="32" r="28"
-                          stroke="#059669"
-                          strokeWidth="6"
-                          strokeDasharray={`${2 * Math.PI * 28}`}
-                          strokeDashoffset={`${2 * Math.PI * 28 * (1 - (diagnosticResult.confidence > 1 ? diagnosticResult.confidence / 100 : diagnosticResult.confidence))}`}
-                          strokeLinecap="round"
-                          fill="transparent"
-                        />
-                      </svg>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-sm font-extrabold text-emerald-950">
-                          {typeof diagnosticResult.confidence === 'number'
-                            ? (diagnosticResult.confidence > 1 ? diagnosticResult.confidence.toFixed(1) : (diagnosticResult.confidence * 100).toFixed(1)) + '%'
-                            : '96.4%'}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-left">
-                      <p className="text-lg font-extrabold text-emerald-950">
-                        {typeof diagnosticResult.confidence === 'number'
-                          ? (diagnosticResult.confidence > 1 ? diagnosticResult.confidence.toFixed(1) : (diagnosticResult.confidence * 100).toFixed(1)) + '% Match'
-                          : '96.4% Match'}
-                      </p>
-                      <p className="text-xs text-emerald-700/50">AI Confidence Score</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Dynamic Error State */}
-              {scanError ? (
-                <div className="p-4 bg-red-50/80 rounded-2xl text-left space-y-2">
-                  <div className="flex items-center gap-2 text-red-800 font-bold text-sm">
-                    <AlertTriangle className="w-5 h-5" />
-                    <span>Gemini AI Analysis Error</span>
-                  </div>
-                  <p className="text-xs text-red-700">{scanError}</p>
-                  <div className="pt-2 text-[11px] text-red-600 border-t border-red-100 flex items-center gap-1.5">
-                    <KeyRound className="w-4 h-4 shrink-0" />
-                    <span>Check your <code className="bg-red-100 px-1 py-0.5 rounded">.env</code> file for <code className="bg-red-100 px-1 py-0.5 rounded">VITE_GEMINI_API_KEY</code>.</span>
-                  </div>
-                </div>
-              ) : diagnosticResult ? (
-                /* Dynamic Gemini Structured Output Display */
-                <div className="text-left">
-                  {/* Engine Identity Badge (Mobile) */}
-                  {diagnosticResult.engine && (
-                    <div className={`mb-3 p-3 rounded-2xl text-xs flex items-start gap-2 ${
-                      diagnosticResult.engine === 'cropguard-onnx'
-                        ? diagnosticResult.guardrailStatus === 'abstained'
-                          ? 'bg-amber-50/80 text-amber-900'
-                          : 'bg-violet-50/80 text-violet-900'
-                        : diagnosticResult.engine === 'on-device'
-                          ? 'bg-slate-50/80 text-slate-800'
-                          : 'bg-blue-50/80 text-blue-900'
-                    }`}>
-                      <span className="shrink-0 mt-0.5">
-                        {diagnosticResult.engine === 'cropguard-onnx' ? '🧬'
-                          : diagnosticResult.engine === 'on-device' ? '📱' : '☁️'}
-                      </span>
-                      <div>
-                        <span className="font-semibold">
-                          {diagnosticResult.engine === 'cropguard-onnx' ? 'CropGuard AI (On-Device)'
-                            : diagnosticResult.engine === 'on-device' ? 'On-Device Heuristic'
-                            : 'Cloud AI (Gemini)'}
-                        </span>
-                        {diagnosticResult.demoNotice && (
-                          <p className="mt-0.5 opacity-80">{diagnosticResult.demoNotice}</p>
-                        )}
-                        {diagnosticResult.guardrailStatus === 'abstained' && diagnosticResult.guardrailReasons?.length > 0 && (
-                          <p className="mt-1 font-medium text-amber-800">
-                            {lang === 'hi' ? 'कारण: ' : 'Reason: '}
-                            {diagnosticResult.guardrailReasons.map(r => r.replace(/_/g, ' ')).join(', ')}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <AdviceBoard
-                    advisory={advisory}
-                    risks={risks}
-                    t={t}
-                    lang={lang}
-                    onNavigateTab={(tab) => {
-                      setShowInsights(false);
-                      setActiveTab(tab);
-                    }}
-                    diagnosticResult={diagnosticResult}
-                  />
-                  <LeafDiagnosticCard
-                    diagnosticResult={diagnosticResult}
-                    t={t}
-                    lang={lang}
-                    severityBadgeClasses={severityBadgeClasses}
-                  />
-                </div>
-              ) : null}
-
-              <button
-                onClick={() => setShowInsights(false)}
-                className="mt-6 w-full py-3.5 rounded-full bg-emerald-900 hover:bg-emerald-800 text-white font-bold text-sm shadow-neumorphic active:scale-95 transition-all"
-              >
-                {t.saveHistory}
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       {/* Desktop Live Camera Viewfinder Modal */}
       <AnimatePresence>

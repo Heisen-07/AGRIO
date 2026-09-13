@@ -1,59 +1,88 @@
 /**
  * AGRIO Diagnosis Service — hybrid cloud + edge routing.
  *
- * Decides where a leaf image gets analysed using a three-tier fallback chain:
+ * Decides where a leaf image gets analysed:
  *
  *   ONLINE:
  *     Gemini cloud model (highest accuracy, multi-crop)
- *       ↓ failure
- *     CropGuard ONNX (on-device, 14 supported crops, strict guardrails)
- *       ↓ failure / unsupported crop / model unavailable
- *     Legacy heuristic (classical-CV, always works)
+ *       ↓ failure / unavailable
+ *     Edge chain (below)
  *
- *   OFFLINE:
- *     CropGuard ONNX (on-device, 14 supported crops, strict guardrails)
- *       ↓ failure / unsupported crop / model unavailable
- *     Legacy heuristic (classical-CV, always works)
+ *   OFFLINE / EDGE CHAIN:
+ *     • SUPPORTED crop (one of CropGuard's 14):
+ *         CropGuard ONNX → prediction OR safe abstention.
+ *         If the model cannot load/init → explicit `cropguard_unavailable`
+ *         abstention. We NEVER silently substitute the legacy heuristic for a
+ *         supported crop — that would let a classical-CV guess masquerade as
+ *         the trained model.
+ *     • UNSUPPORTED crop:
+ *         CropGuard returns an `unsupported_crop` abstention WITHOUT loading or
+ *         running the model (steer the user to cloud AI).
  *
- * The UI only ever calls diagnoseLeaf(); it never needs to know which engine
- * ran — all three return the same result shape (visionSchema contract).
+ * The legacy classical-CV heuristic (edgeVisionService) is intentionally NOT in
+ * this routing. It remains in the codebase only as a clearly-separate legacy
+ * module and is never presented as equivalent to CropGuard.
+ *
+ * The UI only ever calls diagnoseLeaf(); every path returns the same result
+ * shape (visionSchema contract).
  *
  * Engine identification is HONEST:
  *   • engine = 'gemini-...'      → cloud model actually ran
- *   • engine = 'cropguard-onnx'  → CropGuard ONNX model actually ran
- *   • engine = 'on-device'       → legacy heuristic actually ran
+ *   • engine = 'cropguard-onnx'  → CropGuard ONNX ran (or abstained on its behalf)
  * The engine value is NEVER misattributed.
  */
 import { analyzeLeafImage } from './geminiService';
-import { analyzeLeafImageOnDevice } from './edgeVisionService';
-import { analyzeWithCropGuard, validateGeminiDiagnosis } from './visionGuardService';
-import { getOnnxModelReadiness } from './onnxVisionService';
+import {
+  analyzeWithCropGuard,
+  validateGeminiDiagnosis,
+  isCropSupported,
+  buildCropguardUnavailableResult,
+} from './visionGuardService';
+import { ensureOnnxModelLoaded } from './onnxVisionService';
 
 /**
- * Try the CropGuard ONNX model, falling back to the legacy heuristic if ONNX is
- * unavailable, the crop is unsupported, or inference fails.
+ * Edge (on-device) diagnosis chain.
+ *
+ * Supported crops require the CropGuard ONNX model: we trigger the load, then
+ * run guarded inference. On any load/init failure we abstain explicitly
+ * (`cropguard_unavailable`) rather than fall back to the heuristic.
  *
  * @param {string} base64Data  Base64 image
  * @param {string} cropName    User's selected crop (e.g. 'Tomato 🍅')
  * @param {string} lang        'en' | 'hi'
  */
 async function edgeFallbackChain(base64Data, cropName, lang) {
-  // ── Tier 2: CropGuard ONNX (if model is available and crop is supported) ──
-  const readiness = getOnnxModelReadiness();
-  if (readiness !== 'unavailable' && readiness !== 'error') {
-    try {
-      const result = await analyzeWithCropGuard(base64Data, cropName, lang);
-      // If CropGuard returned a result (even abstained), use it — the
-      // abstention result is a valid structured visionSchema output with
-      // clear user messaging. Only fall through on thrown errors.
-      return result;
-    } catch (onnxErr) {
-      console.warn('[Diagnosis] CropGuard ONNX failed — falling back to legacy heuristic:', onnxErr);
-    }
+  // ── Unsupported crop → CropGuard abstains without touching the model ─────
+  if (!isCropSupported(cropName)) {
+    return analyzeWithCropGuard(base64Data, cropName, lang);
   }
 
-  // ── Tier 3: Legacy heuristic (always works, no dependencies) ────────────
-  return analyzeLeafImageOnDevice(base64Data, lang);
+  // ── Supported crop → CropGuard ONNX is REQUIRED ──────────────────────────
+  // Trigger the (lazy, singleton) load FIRST — this is the step that was
+  // missing before, which left readiness permanently 'unavailable' and forced
+  // the heuristic fallback for every supported crop.
+  const load = await ensureOnnxModelLoaded();
+  if (!load.ready) {
+    console.warn(
+      `[Diagnosis] CropGuard ONNX unavailable (${load.code}) — returning cropguard_unavailable. ` +
+      'No heuristic substitution for a supported crop.'
+    );
+    return buildCropguardUnavailableResult({ cropName, lang, code: load.code });
+  }
+
+  try {
+    // Model is ready → run the full guarded pipeline (predicts OR abstains).
+    return await analyzeWithCropGuard(base64Data, cropName, lang);
+  } catch (onnxErr) {
+    // analyzeWithCropGuard normally abstains internally; a throw here means the
+    // session died after load. Still no heuristic — abstain explicitly.
+    console.warn('[Diagnosis] CropGuard ONNX errored after load — returning cropguard_unavailable:', onnxErr);
+    return buildCropguardUnavailableResult({
+      cropName,
+      lang,
+      code: onnxErr?.code || 'INFERENCE_FAILED',
+    });
+  }
 }
 
 /**
@@ -78,11 +107,25 @@ export async function diagnoseLeaf(base64Data, lang = 'en', { cropName } = {}) {
     const rawCloudResult = await analyzeLeafImage(base64Data, lang, { cropName });
     if (rawCloudResult?.code === 'CLOUD_AI_UNAVAILABLE') {
       console.warn('[Diagnosis] Cloud AI unavailable — attempting edge fallback chain');
-      return edgeFallbackChain(base64Data, cropName, lang);
+      const edgeResult = await edgeFallbackChain(base64Data, cropName, lang);
+      return {
+        ...edgeResult,
+        cloudFallback: true,
+        fallbackMessage: lang === 'hi'
+          ? 'ऑनलाइन AI अनुपलब्ध • डिवाइस पर विश्लेषण का उपयोग'
+          : 'Online AI unavailable • using on-device analysis',
+      };
     }
     return await validateGeminiDiagnosis(rawCloudResult, { cropName, lang, base64Data });
   } catch (cloudErr) {
     console.warn('[Diagnosis] Cloud diagnosis unavailable — falling back to edge chain:', cloudErr);
-    return edgeFallbackChain(base64Data, cropName, lang);
+    const edgeResult = await edgeFallbackChain(base64Data, cropName, lang);
+    return {
+      ...edgeResult,
+      cloudFallback: true,
+      fallbackMessage: lang === 'hi'
+        ? 'ऑनलाइन AI अनुपलब्ध • डिवाइस पर विश्लेषण का उपयोग'
+        : 'Online AI unavailable • using on-device analysis',
+    };
   }
 }

@@ -435,9 +435,21 @@ function buildAbstainResult({
   const guardrailReasons = reasons || (reason ? [reason] : []);
   const primaryReason = guardrailReasons[0] || reason;
 
-  const title = primaryReason === 'unsupported_crop'
-    ? L('Crop Not Supported', 'फसल समर्थित नहीं')
-    : L('Unable to Identify Reliably', 'विश्वसनीय रूप से पहचान नहीं हो सकी');
+  let title;
+  if (primaryReason === 'unsupported_crop') {
+    title = L('Crop Not Supported', 'फसल समर्थित नहीं');
+  } else if (primaryReason === 'cropguard_unavailable') {
+    title = L('On-Device AI Unavailable', 'ऑन-डिवाइस AI उपलब्ध नहीं');
+  } else {
+    title = L('Unable to Identify Reliably', 'विश्वसनीय रूप से पहचान नहीं हो सकी');
+  }
+
+  const firstStep =
+    primaryReason === 'unsupported_crop'
+      ? L('Use cloud AI (Gemini) for diagnosis of this crop.', 'इस फसल के निदान के लिए क्लाउड AI (Gemini) का उपयोग करें।')
+      : primaryReason === 'cropguard_unavailable'
+        ? L('Connect to the internet to use cloud AI (Gemini), or try again.', 'क्लाउड AI (Gemini) उपयोग करने के लिए इंटरनेट से कनेक्ट करें, या पुनः प्रयास करें।')
+        : L('Retake a clear, well-lit close-up of a single leaf.', 'एक पत्ती की स्पष्ट, अच्छी रोशनी वाली नज़दीकी तस्वीर दोबारा लें।');
 
   const flat = {
     disease: title,
@@ -445,9 +457,7 @@ function buildAbstainResult({
     severity: 'Low',
     description: message,
     treatment_steps: [
-      primaryReason === 'unsupported_crop'
-        ? L('Use cloud AI (Gemini) for diagnosis of this crop.', 'इस फसल के निदान के लिए क्लाउड AI (Gemini) का उपयोग करें।')
-        : L('Retake a clear, well-lit close-up of a single leaf.', 'एक पत्ती की स्पष्ट, अच्छी रोशनी वाली नज़दीकी तस्वीर दोबारा लें।'),
+      firstStep,
       L('If online, cloud AI can provide a more detailed analysis.', 'यदि ऑनलाइन हैं, तो क्लाउड AI अधिक विस्तृत विश्लेषण दे सकता है।'),
     ],
     nutrientDeficiency: {
@@ -508,6 +518,40 @@ function buildAbstainResult({
     engine,
     onDevice,
     lang,
+  });
+}
+
+/**
+ * Build an explicit `cropguard_unavailable` abstention for a SUPPORTED crop
+ * whose on-device CropGuard model could not be loaded or initialised.
+ *
+ * This is the SAFE alternative mandated by the routing policy: for a supported
+ * crop we must NOT silently substitute the legacy heuristic when CropGuard is
+ * down. Instead we abstain honestly — farmer-friendly messaging (no technical
+ * error text, no fabricated disease label) that steers the user to cloud AI or
+ * a retry. The result is a valid visionSchema abstention (category = unknown).
+ *
+ * @param {Object}  opts
+ * @param {string} [opts.cropName]  Selected crop (kept for parity; not shown raw)
+ * @param {string} [opts.lang]      'en' | 'hi'
+ * @param {string} [opts.code]      Diagnostic failure code (logged, never shown)
+ * @returns {Object} visionSchema abstain result
+ */
+export function buildCropguardUnavailableResult({ cropName: _cropName = null, lang = 'en', code = null } = {}) {
+  const L = (en, hi) => (lang === 'hi' ? hi : en);
+  if (code) {
+    console.warn(`[CropGuard] cropguard_unavailable abstention returned (code: ${code})`);
+  }
+  return buildAbstainResult({
+    reason: 'cropguard_unavailable',
+    message: L(
+      'On-device AI could not start on this device. Connect to the internet to use cloud AI, or try again.',
+      'इस डिवाइस पर ऑन-डिवाइस AI शुरू नहीं हो सका। क्लाउड AI उपयोग करने के लिए इंटरनेट से कनेक्ट करें, या पुनः प्रयास करें।'
+    ),
+    supportedCrop: true,
+    lang,
+    engine: 'cropguard-onnx',
+    onDevice: true,
   });
 }
 

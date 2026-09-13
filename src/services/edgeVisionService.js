@@ -223,10 +223,11 @@ function buildReport(r, lang) {
         nextInspection: L('Next Inspection: Re-scan Now', 'अगला निरीक्षण: अभी दोबारा स्कैन करें'),
       },
       onDevice: true,
-      engine: 'on-device',
+      engine: 'legacy-heuristic',
+      engineLabel: L('Legacy Heuristic — On-device', 'लीगेसी ह्युरिस्टिक — डिवाइस पर'),
       demoNotice: L(
-        '🌿 Analyzed on-device (offline edge AI). Reconnect for a full cloud diagnosis.',
-        '🌿 डिवाइस पर विश्लेषण (ऑफ़लाइन एज AI)। पूर्ण क्लाउड निदान हेतु दोबारा कनेक्ट करें।'
+        '📱 Analyzed via legacy heuristic (on-device). Reconnect for a full cloud diagnosis.',
+        '📱 लीगेसी ह्युरिस्टिक (डिवाइस पर) द्वारा विश्लेषण। पूर्ण क्लाउड निदान हेतु दोबारा कनेक्ट करें।'
       ),
     };
 
@@ -251,7 +252,7 @@ function buildReport(r, lang) {
         evidence: { coverage: round2(r.coverage) },
       }),
     ];
-    return assembleResult({ flat, findings, imageQuality, engine: 'on-device', onDevice: true, lang });
+    return assembleResult({ flat, findings, imageQuality, engine: 'legacy-heuristic', onDevice: true, lang });
   }
 
   // ---- Combined pest signal ----
@@ -305,8 +306,8 @@ function buildReport(r, lang) {
       'पत्ती की सतह पर नारंगी/पीले रतुआ रंग के फफोले पाए गए।'
     );
     treatment_steps = [
-      L('1. Spray Propiconazole 25% EC @ 1 ml/L water in the early morning.',
-        '1. सुबह प्रोपिकोनाज़ोल 25% EC @ 1 मिली/लीटर पानी छिड़कें।'),
+      L('1. Inspect affected leaves and follow crop-specific local extension guidance.',
+        '1. प्रभावित पत्तियों का निरीक्षण करें और स्थानीय कृषि विस्तार मार्गदर्शन का पालन करें।'),
       L('2. Improve field drainage to reduce leaf-surface humidity.',
         '2. पत्ती की सतह की नमी घटाने हेतु खेत जल निकासी सुधारें।'),
       L('3. Re-inspect the surrounding 50 m within 48 hours.',
@@ -320,10 +321,10 @@ function buildReport(r, lang) {
       'भूरे परिगलित घाव मिले — फफूंद पत्ती धब्बा या प्रारंभिक झुलसा के विशिष्ट लक्षण।'
     );
     treatment_steps = [
-      L('1. Spray Mancozeb 75% WP @ 2 g/L (or copper oxychloride) at first symptoms.',
-        '1. लक्षण दिखते ही मैंकोज़ेब 75% WP @ 2 ग्राम/लीटर (या कॉपर ऑक्सीक्लोराइड) छिड़कें।'),
-      L('2. Remove and destroy infected leaf debris from the field.',
-        '2. संक्रमित पत्तियों के अवशेष खेत से हटाकर नष्ट करें।'),
+      L('1. Inspect affected leaves; destroy severely infected leaf debris where appropriate.',
+        '1. प्रभावित पत्तियों का निरीक्षण करें; जहाँ उचित हो अत्यधिक संक्रमित पत्तियाँ नष्ट करें।'),
+      L('2. Follow crop-specific local extension guidance and the product label.',
+        '2. फसल-विशिष्ट स्थानीय कृषि विस्तार मार्गदर्शन और उत्पाद लेबल का पालन करें।'),
       L('3. Avoid overhead irrigation; keep foliage dry where possible.',
         '3. ऊपर से सिंचाई से बचें; पत्तियों को यथासंभव सूखा रखें।'),
     ];
@@ -339,8 +340,8 @@ function buildReport(r, lang) {
     treatment_steps = [
       L('1. Scout leaf undersides for caterpillars / beetles and egg masses.',
         '1. पत्तियों के नीचे इल्ली/भृंग और अंडों के समूह की जाँच करें।'),
-      L('2. Spray Neem oil (5 ml/L); for heavy chewing use a recommended targeted insecticide.',
-        '2. नीम तेल (5 मिली/लीटर) छिड़कें; अधिक कुतरने पर अनुशंसित लक्षित कीटनाशक का प्रयोग करें।'),
+      L('2. Follow crop-specific extension guidance and the product label for targeted treatment.',
+        '2. लक्षित उपचार हेतु फसल-विशिष्ट विस्तार मार्गदर्शन और उत्पाद लेबल का पालन करें।'),
       L('3. Remove badly damaged leaves and re-inspect within 48 hours.',
         '3. अत्यधिक क्षतिग्रस्त पत्तियाँ हटाएँ और 48 घंटों में पुनः जाँच करें।'),
     ];
@@ -368,8 +369,8 @@ function buildReport(r, lang) {
       confidence: round1(clamp(60 + r.yellowRatio * 100, 60, 90)),
       symptoms: L('Widespread yellowing of foliage detected on-device.',
         'डिवाइस पर पत्तियों में व्यापक पीलापन पाया गया।'),
-      recommendation: L('Apply foliar urea spray (1.5%) during early morning.',
-        'सुबह के समय 1.5% यूरिया का पर्णीय छिड़काव करें।'),
+      recommendation: L('Monitor foliage and consult soil test results before applying nitrogen.',
+        'पत्तियों की निगरानी करें और नाइट्रोजन देने से पहले मृदा परीक्षण की सलाह लें।'),
     };
   } else if (r.yellowRatio >= 0.08) {
     nutrientDeficiency = {
@@ -399,24 +400,24 @@ function buildReport(r, lang) {
       status: L('Heavy Pest Activity — holes / chewing / speckling detected',
         'भारी कीट गतिविधि — छेद / कुतरना / धब्बे पाए गए'),
       severity: 'Critical',
-      action: L('Scout immediately; apply a targeted bio-pesticide (Neem 5 ml/L) to affected patches and remove badly damaged leaves.',
-        'तुरंत निरीक्षण करें; प्रभावित हिस्सों पर लक्षित जैव-कीटनाशक (नीम 5 मिली/लीटर) लगाएं और अत्यधिक क्षतिग्रस्त पत्तियाँ हटाएँ।'),
+      action: L('Scout immediately; remove badly damaged leaves and follow local extension recommendations.',
+        'तुरंत निरीक्षण करें; अत्यधिक क्षतिग्रस्त पत्तियाँ हटाएँ और स्थानीय विस्तार सिफारिशों का पालन करें।'),
     };
   } else if (pestSeverity === 'High') {
     pestPressure = {
       status: L('Significant Pest Damage — holes / chewing detected',
         'महत्वपूर्ण कीट क्षति — छेद / कुतरना पाया गया'),
       severity: 'High',
-      action: L('Apply Neem oil emulsion (5 ml/L) to affected patches; scout leaf undersides for larvae.',
-        'प्रभावित हिस्सों पर नीम तेल इमल्शन (5 मिली/लीटर) लगाएं; पत्तियों के नीचे लार्वा की जाँच करें।'),
+      action: L('Scout leaf undersides for larvae; follow crop-specific extension guidance and the product label.',
+        'पत्तियों के नीचे लार्वा की जाँच करें; फसल-विशिष्ट विस्तार मार्गदर्शन और उत्पाद लेबल का पालन करें।'),
     };
   } else if (pestSeverity === 'Moderate') {
     pestPressure = {
       status: L('Moderate Pest Pressure — early chewing / speckling',
         'मध्यम कीट दबाव — प्रारंभिक कुतरना / धब्बे'),
       severity: 'Moderate',
-      action: L('Apply Neem oil emulsion (5 ml/L) locally; avoid blanket pesticide use.',
-        'स्थानीय रूप से नीम तेल इमल्शन (5 मिली/लीटर) लगाएं; अंधाधुंध कीटनाशक से बचें।'),
+      action: L('Inspect leaf undersides and monitor closely; avoid blanket pesticide use.',
+        'पत्तियों के निचले हिस्से की जाँच करें और बारीकी से निगरानी करें; अंधाधुंध कीटनाशक से बचें।'),
     };
   } else if (pestSignal >= 0.015) {
     pestPressure = {
@@ -434,7 +435,21 @@ function buildReport(r, lang) {
   }
 
   // ---- Overall severity = worst of disease & pest ----
-  const severity = worst(diseaseSeverity, pestSeverity);
+  // Heuristic never claims clinical 'High' unless supported by multiple severe signals
+  const rawSeverity = worst(diseaseSeverity, pestSeverity);
+  const severity = (diseaseSeverity === 'High' && pestSeverity === 'High')
+    ? 'High'
+    : (rawSeverity === 'High' || rawSeverity === 'Critical')
+      ? 'Moderate'
+      : rawSeverity;
+
+  const severityLabel = (diseaseSeverity === 'High' && pestSeverity === 'High')
+    ? L('High concern', 'गंभीर चिंता')
+    : (damage > 0.28 || pestSignal >= 0.09)
+      ? L('Moderate concern', 'मध्यम चिंता')
+      : (damage > 0.12 || pestSignal >= 0.04)
+        ? L('Attention', 'ध्यान दें')
+        : L('Monitor', 'निगरानी');
 
   // ---- Actionable advisory ----
   const needsSpray =
@@ -443,10 +458,10 @@ function buildReport(r, lang) {
     pestPressure.severity === 'Critical';
 
   const fertilizerAction = r.yellowRatio >= 0.18
-    ? L('Fertilizer: Apply Urea (Nitrogen)', 'उर्वरक: यूरिया (नाइट्रोजन) दें')
+    ? L('Fertilizer: Consult Soil Test', 'उर्वरक: मृदा परीक्षण की सलाह लें')
     : r.yellowRatio >= 0.08
-      ? L('Fertilizer: Balanced NPK + Soil Test', 'उर्वरक: संतुलित एनपीके + मृदा परीक्षण')
-      : L('Fertilizer: Maintain Standard NPK', 'उर्वरक: मानक एनपीके बनाए रखें');
+      ? L('Fertilizer: Balanced Nutrition + Soil Test', 'उर्वरक: संतुलित पोषण + मृदा परीक्षण')
+      : L('Fertilizer: Maintain Standard Nutrition', 'उर्वरक: मानक पोषण बनाए रखें');
 
   const nextInspection = severity === 'High' || severity === 'Critical'
     ? L('Next Inspection: 24 Hours', 'अगला निरीक्षण: 24 घंटे')
@@ -456,27 +471,30 @@ function buildReport(r, lang) {
 
   const advisory = {
     sprayStatus: needsSpray
-      ? L('Spray Status: Targeted Intervention Needed', 'स्प्रे स्थिति: लक्षित हस्तक्षेप आवश्यक')
+      ? L('Spray Status: Verify Diagnosis First', 'स्प्रे स्थिति: पहले निदान सत्यापित करें')
       : L('Spray Status: Preventive Only', 'स्प्रे स्थिति: केवल निवारक'),
     fertilizerAction,
     nextInspection,
   };
 
-  // ---- Flat contract (UNCHANGED — the Dashboard / LeafDiagnosticCard read these) ----
+  // ---- Flat contract (Dashboard / diagnosis views read these) ----
   const flat = {
     disease,
     confidence,
     severity,
+    severityLabel,
+    evidenceStrength: 'Moderate',
     description,
     treatment_steps,
     nutrientDeficiency,
     pestPressure,
     advisory,
     onDevice: true,
-    engine: 'on-device',
+    engine: 'legacy-heuristic',
+    engineLabel: L('Legacy Heuristic — On-device', 'लीगेसी ह्युरिस्टिक — डिवाइस पर'),
     demoNotice: L(
-      '🌿 Analyzed on-device (offline edge AI). Reconnect for a full cloud diagnosis.',
-      '🌿 डिवाइस पर विश्लेषण (ऑफ़लाइन एज AI)। पूर्ण क्लाउड निदान हेतु दोबारा कनेक्ट करें।'
+      '📱 Analyzed via legacy heuristic (on-device). Reconnect for a full cloud diagnosis.',
+      '📱 लीगेसी ह्युरिस्टिक (डिवाइस पर) द्वारा विश्लेषण। पूर्ण क्लाउड निदान हेतु दोबारा कनेक्ट करें।'
     ),
   };
 
@@ -573,7 +591,17 @@ function buildReport(r, lang) {
           'फ्रेम में पत्ती छोटी है — परिणाम कम विश्वसनीय हो सकते हैं।'),
   };
 
-  return assembleResult({ flat, findings, imageQuality, engine: 'on-device', onDevice: true, lang });
+  return assembleResult({ flat, findings, imageQuality, engine: 'legacy-heuristic', onDevice: true, lang });
+}
+
+export { buildReport };
+
+export function runHeuristicDiagnosis(ratios, cropName = null, lang = 'en') {
+  const result = buildReport(ratios, lang);
+  if (cropName && result) {
+    result.cropName = cropName;
+  }
+  return result;
 }
 
 export async function analyzeLeafImageOnDevice(base64Data, lang = 'en') {

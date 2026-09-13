@@ -101,7 +101,7 @@ export const SCENARIO_B = {
           severity: 'High',
           confidence: 82,
           confidenceBasis: CONFIDENCE_BASIS.HEURISTIC,
-          recommendations: ['Scout adjacent plants for pests.', 'Apply neem oil emulsion (5 ml/L) locally.'],
+          recommendations: ['Scout adjacent plants for pests.', 'Follow crop-specific local extension guidance and product label.'],
           evidence: { holeRatio: 0.1 },
         }),
         makeFinding({

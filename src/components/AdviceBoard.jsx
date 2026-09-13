@@ -3,8 +3,8 @@ import { motion } from 'framer-motion';
 import {
   Leaf, Bug, ShieldAlert, FlaskConical, Droplets, CloudRain, CloudSun, Thermometer,
   CheckCircle, AlertTriangle, HelpCircle, Eye, Database, Sprout,
-  ClipboardList, ListChecks, Radio, ChevronDown, ChevronUp, ShieldCheck,
-  Camera, RadioTower, ExternalLink,
+  ListChecks, Radio, ChevronDown, ChevronUp, ShieldCheck,
+  Camera, RadioTower,
 } from 'lucide-react';
 
 /**
@@ -228,9 +228,7 @@ export default function AdviceBoard({
 
   const {
     overallStatus,
-    detectedIssues = [],
     treatmentRecommendations = [],
-    nutrientRecommendations = [],
     irrigationRecommendation: irr,
     preventionRecommendations = [],
     nextActions = [],
@@ -507,123 +505,20 @@ export default function AdviceBoard({
         </div>
       </div>
 
-      {/* ── 6. COMPACT DIAGNOSTIC OBSERVATIONS (DISEASE / PEST / NUTRIENT) ── */}
-      {detectedIssues.length > 0 && (
-        <div className="bg-white/80 backdrop-blur-md border border-emerald-100/80 rounded-3xl p-5 sm:p-6 shadow-neumorphic ring-1 ring-inset ring-white/50 w-full min-w-0">
-          <div className="flex items-center gap-2 mb-3.5">
-            <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200/60 flex items-center justify-center shrink-0 text-amber-700 shadow-2xs">
-              <ClipboardList className="w-4 h-4" />
-            </div>
-            <h3 className="font-bold text-base sm:text-lg text-emerald-950 truncate min-w-0">
-              {L(t, 'advDetected', 'Field Observations')}
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full min-w-0">
-            {/* Disease Card */}
-            {(() => {
-              const diseaseIssue = detectedIssues.find((i) => i.category === 'disease');
-              return (
-                <div className="rounded-2xl border border-amber-200/80 bg-amber-50/40 backdrop-blur-sm p-4 flex flex-col justify-between min-w-0 shadow-2xs">
-                  <div>
-                    <div className="flex items-center justify-between gap-1 mb-1.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900/70 flex items-center gap-1.5">
-                        <Leaf className="w-3.5 h-3.5 text-amber-700" />
-                        {lang === 'hi' ? 'रोग' : 'DISEASE'}
-                      </span>
-                      {diseaseIssue && (
-                        <Chip className={SEV_CHIP[diseaseIssue.severity] || SEV_CHIP.Low}>{diseaseIssue.severity}</Chip>
-                      )}
-                    </div>
-                    <p className="text-sm font-bold text-slate-900 leading-snug break-words">
-                      {diseaseIssue ? diseaseIssue.title : (lang === 'hi' ? 'कोई रोग नहीं मिला' : 'No disease detected')}
-                    </p>
-                  </div>
-                  <div className="mt-3 pt-2 border-t border-amber-200/50 text-[11px] text-slate-500 font-medium">
-                    {diseaseIssue?.confidence != null ? `Confidence: ${diseaseIssue.confidence}%` : 'Visual Inspection'}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Pest Card */}
-            {(() => {
-              const pestIssue = detectedIssues.find((i) => i.category === 'pest');
-              return (
-                <div className="rounded-2xl border border-orange-200/60 bg-orange-50/30 backdrop-blur-sm p-4 flex flex-col justify-between min-w-0 shadow-2xs">
-                  <div>
-                    <div className="flex items-center justify-between gap-1 mb-1.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-orange-900/70 flex items-center gap-1.5">
-                        <Bug className="w-3.5 h-3.5 text-orange-700" />
-                        {lang === 'hi' ? 'कीट' : 'PEST'}
-                      </span>
-                      {pestIssue && (
-                        <Chip className={SEV_CHIP[pestIssue.severity] || SEV_CHIP.Low}>{pestIssue.severity}</Chip>
-                      )}
-                    </div>
-                    <p className="text-sm font-bold text-slate-900 leading-snug break-words">
-                      {pestIssue ? pestIssue.title : (t.pestNoneDetected || (lang === 'hi' ? 'कोई कीट नहीं पाया गया' : 'None detected'))}
-                    </p>
-                  </div>
-                  <div className="mt-3 pt-2 border-t border-orange-200/50 text-[11px] text-slate-500 font-medium">
-                    {pestIssue ? (pestIssue.detail || 'Observed') : (lang === 'hi' ? 'स्थिति सामान्य' : 'Status: Optimal')}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Nutrient Observation Card (explicitly visual observation, never claiming laboratory NPK) */}
-            {(() => {
-              const nutrientIssue = detectedIssues.find((i) => i.category === 'nutrient') || nutrientRecommendations[0];
-              return (
-                <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/40 backdrop-blur-sm p-4 flex flex-col justify-between min-w-0 shadow-2xs">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-900/70 flex items-center gap-1.5 mb-1.5">
-                      <FlaskConical className="w-3.5 h-3.5 text-emerald-700" />
-                      {t.nutrientObsTitle || (lang === 'hi' ? 'पोषक तत्व अवलोकन' : 'NUTRIENT OBSERVATION')}
-                    </span>
-                    <p className="text-sm font-bold text-slate-900 leading-snug break-words">
-                      {nutrientIssue ? (nutrientIssue.title || nutrientIssue.symptomStatement) : (lang === 'hi' ? 'पोषक लक्षण सामान्य' : 'No visible deficiency')}
-                    </p>
-                  </div>
-                  <div className="mt-3 pt-2 border-t border-emerald-200/50">
-                    <p className="text-[10px] text-emerald-800/80 italic leading-tight">
-                      {t.nutrientVisualNote || (lang === 'hi' ? 'केवल दृश्य लक्षण — प्रयोगशाला मृदा परीक्षण नहीं' : 'Visual symptoms only — not a soil test')}
-                    </p>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-      )}
-
-      {/* ── 7. CONDITIONAL EXPERT / KVK SECTION (Only shown when warranted) ── */}
+      {/* ── 6. CONDITIONAL EXPERT REVIEW (Passive text only when warranted) ── */}
       {isExpertWarranted && (
-        <div className="rounded-3xl border border-purple-200/80 bg-gradient-to-r from-purple-50/90 via-white/85 to-blue-50/90 backdrop-blur-md p-5 sm:p-6 shadow-neumorphic ring-1 ring-inset ring-white/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full min-w-0">
-          <div className="flex items-start gap-3.5 min-w-0 flex-1">
-            <div className="w-10 h-10 rounded-2xl bg-purple-100 border border-purple-200 text-purple-700 flex items-center justify-center shrink-0 shadow-2xs">
-              <ShieldAlert className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <h4 className="font-bold text-sm sm:text-base text-purple-950 leading-snug">
-                {L(t, 'expertReviewTitle', 'Expert Review Recommended')}
-              </h4>
-              <p className="text-xs sm:text-[13px] text-purple-900/80 mt-0.5 leading-relaxed break-words">
-                {L(t, 'expertReviewBody', 'AI confidence is low or the condition is severe. Consult your nearest Krishi Vigyan Kendra (KVK).')}
-              </p>
-            </div>
+        <div className="rounded-3xl border border-purple-200/80 bg-gradient-to-r from-purple-50/90 via-white/85 to-blue-50/90 backdrop-blur-md p-4 sm:p-5 shadow-neumorphic ring-1 ring-inset ring-white/60 flex items-start gap-3.5 w-full min-w-0">
+          <div className="w-9 h-9 rounded-2xl bg-purple-100 border border-purple-200 text-purple-700 flex items-center justify-center shrink-0 shadow-2xs">
+            <ShieldAlert className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
-
-          <a
-            href="https://kvk.icar.gov.in/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-purple-800 hover:bg-purple-900 text-white text-xs sm:text-sm font-bold shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-95 transition-all duration-200 shrink-0 cursor-pointer min-h-[44px] focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:outline-none"
-          >
-            <span>{L(t, 'findKvkBtn', 'Find Nearest KVK')}</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
+          <div className="min-w-0 flex-1">
+            <h4 className="font-bold text-sm sm:text-base text-purple-950 leading-snug">
+              {L(t, 'expertReviewTitle', 'Expert Review Recommended')}
+            </h4>
+            <p className="text-xs sm:text-[13px] text-purple-900/80 mt-0.5 leading-relaxed break-words">
+              {L(t, 'expertReviewBody', 'AI confidence is low or the condition is severe. AGRIO will support local agricultural expert referral when the verified KVK directory is integrated.')}
+            </p>
+          </div>
         </div>
       )}
 

@@ -84,8 +84,9 @@ self.addEventListener('fetch', (event) => {
   // locally available for offline on-device inference. Once downloaded on
   // the first online load, they are served from cache on subsequent visits
   // (including offline). If the model has never been downloaded and the
-  // device is offline, the fetch will fail and the app's ONNX service
-  // gracefully falls back to the legacy heuristic — this is expected.
+  // device is offline, the fetch fails and CropGuard returns an explicit
+  // `cropguard_unavailable` abstention — it does NOT substitute the legacy
+  // heuristic for a supported crop.
   const isModelAsset =
     url.pathname.startsWith('/models/') ||
     url.pathname.endsWith('.onnx') ||

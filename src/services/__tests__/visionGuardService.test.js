@@ -35,12 +35,14 @@ import {
   analyzeWithCropGuard,
   isCropSupported,
   normalizeToCropGuardKey,
+  buildCropguardUnavailableResult,
 } from '../visionGuardService';
 import {
   getOnnxModelReadiness,
   runOnnxInference,
   extractImageMetrics,
 } from '../onnxVisionService';
+import { MODEL_META } from '../onnxModelMeta';
 
 // Helper: create logits where class `idx` has a dominant value
 function makeLogits(dominantIdx, dominantValue = 8.0, baseValue = -2.0) {
@@ -248,5 +250,46 @@ describe('analyzeWithCropGuard', () => {
     expect(result.guardrailStatus).toBe('passed');
     // Should contain Hindi text
     expect(result.findings[0].title).toContain('टमाटर');
+  });
+});
+
+// ── Model input contract ────────────────────────────────────────────────────
+describe('model input contract', () => {
+  test('model URL is the absolute-from-origin /models/cropguard.onnx', () => {
+    // Must NOT be './models/...', 'public/models/...' or a file:// URL — those
+    // break fetch resolution in production / PWA.
+    expect(MODEL_META.modelPath).toBe('/models/cropguard.onnx');
+  });
+
+  test('input tensor contract is NCHW 1×3×224×224, ImageNet-normalised', () => {
+    expect(MODEL_META.input.layout).toBe('NCHW');
+    expect(MODEL_META.input.width).toBe(224);
+    expect(MODEL_META.input.height).toBe(224);
+    expect(MODEL_META.input.channels).toBe(3);
+    expect(MODEL_META.input.normalize.mean).toEqual([0.485, 0.456, 0.406]);
+    expect(MODEL_META.input.normalize.std).toEqual([0.229, 0.224, 0.225]);
+    expect(MODEL_META.output.numClasses).toBe(38);
+  });
+});
+
+// ── cropguard_unavailable abstention builder ──────────────────────────────────
+describe('buildCropguardUnavailableResult', () => {
+  test('returns an honest on-device abstention (never a disease claim)', () => {
+    const result = buildCropguardUnavailableResult({ cropName: 'Tomato', lang: 'en', code: 'MODEL_FETCH_FAILED' });
+
+    expect(result.engine).toBe('cropguard-onnx');
+    expect(result.onDevice).toBe(true);
+    expect(result.guardrailStatus).toBe('abstained');
+    expect(result.guardrailReasons).toContain('cropguard_unavailable');
+    expect(result.supportedCrop).toBe(true);
+    // Category must be unknown — no fabricated diagnosis
+    expect(result.findings[0].category).toBe('unknown');
+    expect(result.disease).toBe('On-Device AI Unavailable');
+  });
+
+  test('localises to Hindi', () => {
+    const result = buildCropguardUnavailableResult({ cropName: 'Tomato', lang: 'hi', code: 'WASM_INIT_FAILED' });
+    expect(result.disease).toBe('ऑन-डिवाइस AI उपलब्ध नहीं');
+    expect(result.guardrailReasons).toContain('cropguard_unavailable');
   });
 });
