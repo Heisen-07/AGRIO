@@ -13,9 +13,13 @@
   },
   "dependencies": {
     "@google/genai": "^2.18.0",
+    "bcryptjs": "^3.0.3",
     "clsx": "^2.0.0",
+    "cookie": "^2.0.1",
     "framer-motion": "^10.16.4",
+    "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.294.0",
+    "mongoose": "^9.10.1",
     "onnxruntime-web": "^1.29.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
