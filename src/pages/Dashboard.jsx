@@ -90,9 +90,9 @@ function LeafDiagnosticCard({
   const isHealthyFinding =
     diagnosticResult.guardrailStatus !== 'abstained' &&
     (diagnosticResult.findings?.some((f) => f.category === 'healthy') ||
-     diseaseText.includes('healthy') ||
-     diseaseText.includes('no disease') ||
-     diseaseText.includes('स्वस्थ'));
+      diseaseText.includes('healthy') ||
+      diseaseText.includes('no disease') ||
+      diseaseText.includes('स्वस्थ'));
 
   const pestStatus = diagnosticResult.pestPressure?.status || '';
   const pestSeverity = diagnosticResult.pestPressure?.severity || 'Low';
@@ -417,7 +417,7 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
   const sensorMeta = {
     connected: { label: t.sensorConnected, dot: 'bg-emerald-500 animate-pulse', chip: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
     simulated: { label: t.sensorSimulated, dot: 'bg-amber-400', chip: 'bg-amber-100 text-amber-800 border-amber-300' },
-    offline:   { label: t.sensorOffline, dot: 'bg-slate-300', chip: 'bg-slate-100 text-slate-600 border-slate-300' },
+    offline: { label: t.sensorOffline, dot: 'bg-slate-300', chip: 'bg-slate-100 text-slate-600 border-slate-300' },
   }[sensorState];
 
   // Weather freshness — derived from the real fetch timestamp, never invented
@@ -900,11 +900,10 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                   onClick={() => setActiveTab(item.id)}
                   role="tab"
                   aria-selected={isActive}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 active:scale-[0.98] ${
-                    isActive
-                      ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 shadow-xs backdrop-blur-xs font-bold'
-                      : 'text-emerald-100/60 hover:text-white hover:bg-emerald-800/40 font-medium'
-                  }`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 active:scale-[0.98] ${isActive
+                    ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 shadow-xs backdrop-blur-xs font-bold'
+                    : 'text-emerald-100/60 hover:text-white hover:bg-emerald-800/40 font-medium'
+                    }`}
                 >
                   <Icon className={`w-5 h-5 ${isActive ? 'text-emerald-400' : 'text-emerald-200/60'}`} />
                   <span className="truncate">{item.label}</span>
@@ -936,11 +935,10 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
             </button>
             {cropName && (
               <span
-                className={`mt-2 inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold ${
-                  cropSupported
-                    ? 'bg-emerald-500/15 text-emerald-300'
-                    : 'bg-amber-500/15 text-amber-300'
-                }`}
+                className={`mt-2 inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold ${cropSupported
+                  ? 'bg-emerald-500/15 text-emerald-300'
+                  : 'bg-amber-500/15 text-amber-300'
+                  }`}
               >
                 {cropSupported ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
                 <span>{cropSupported ? (t.setupSupportedBadge || 'On-device AI') : (t.setupUnsupportedShort || 'Offline AI: N/A')}</span>
@@ -996,11 +994,10 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                     <Navigation className="w-3 h-3 text-sky-300 shrink-0" />
                     <span className="max-w-[150px] truncate">{locationTag}</span>
                   </span>
-                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-md text-xs font-semibold shadow-2xs ${
-                    cropSupported
-                      ? 'bg-purple-500/20 text-purple-100 border border-purple-400/40'
-                      : 'bg-amber-500/20 text-amber-100 border border-amber-400/40'
-                  }`}>
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-md text-xs font-semibold shadow-2xs ${cropSupported
+                    ? 'bg-purple-500/20 text-purple-100 border border-purple-400/40'
+                    : 'bg-amber-500/20 text-amber-100 border border-amber-400/40'
+                    }`}>
                     {cropSupported ? <Sparkles className="w-3 h-3 text-purple-300 shrink-0" /> : <AlertTriangle className="w-3 h-3 text-amber-300 shrink-0" />}
                     <span>{aiStatusBadge.chip}</span>
                   </span>
@@ -1010,11 +1007,10 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
 
             {/* Mobile Active Crop Card (floating overlap) */}
             <div className="px-3.5 sm:px-4 -mt-3.5 relative z-10 w-full max-w-full">
-              <div className={`p-4 rounded-2xl shadow-neumorphic border transition-all w-full min-w-0 backdrop-blur-md ring-1 ring-inset ring-white/60 ${
-                cropSupported
-                  ? 'bg-gradient-to-r from-emerald-50/70 via-white/90 to-teal-50/60 border-emerald-200/90'
-                  : 'bg-gradient-to-r from-amber-50/70 via-white/90 to-orange-50/60 border-amber-200/90'
-              }`}>
+              <div className={`p-4 rounded-2xl shadow-neumorphic border transition-all w-full min-w-0 backdrop-blur-md ring-1 ring-inset ring-white/60 ${cropSupported
+                ? 'bg-gradient-to-r from-emerald-50/70 via-white/90 to-teal-50/60 border-emerald-200/90'
+                : 'bg-gradient-to-r from-amber-50/70 via-white/90 to-orange-50/60 border-amber-200/90'
+                }`}>
                 <div className="flex items-start justify-between gap-3 min-w-0">
                   <div className="min-w-0 flex-1">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800/70 flex items-center gap-1 mb-0.5">
@@ -1024,9 +1020,8 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                     <p className="text-base font-bold text-emerald-950 truncate">
                       {cropDisplay.display}
                     </p>
-                    <p className={`text-xs font-medium mt-0.5 flex items-center gap-1 ${
-                      cropSupported ? 'text-emerald-700' : 'text-amber-700'
-                    }`}>
+                    <p className={`text-xs font-medium mt-0.5 flex items-center gap-1 ${cropSupported ? 'text-emerald-700' : 'text-amber-700'
+                      }`}>
                       <span>{aiStatusBadge.desc}</span>
                     </p>
                   </div>
@@ -1090,11 +1085,10 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                     <span className="max-w-[200px] truncate">{locationTag}</span>
                   </span>
                   {/* AI Status Chip */}
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs sm:text-sm font-semibold border shadow-2xs backdrop-blur-md ${
-                    cropSupported
-                      ? 'bg-purple-500/10 text-purple-950 border-purple-300/60'
-                      : 'bg-amber-500/10 text-amber-950 border-amber-300/60'
-                  }`}>
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs sm:text-sm font-semibold border shadow-2xs backdrop-blur-md ${cropSupported
+                    ? 'bg-purple-500/10 text-purple-950 border-purple-300/60'
+                    : 'bg-amber-500/10 text-amber-950 border-amber-300/60'
+                    }`}>
                     {cropSupported ? <Sparkles className="w-3.5 h-3.5 text-purple-700 shrink-0" /> : <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0" />}
                     <span>{aiStatusBadge.chip}</span>
                   </span>
@@ -1112,11 +1106,10 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
 
               {/* Desktop Active Crop Card */}
               <div className="w-80 shrink-0">
-                <div className={`p-4 rounded-2xl border shadow-2xs transition-all w-full backdrop-blur-md ring-1 ring-inset ring-white/60 hover:shadow-xs ${
-                  cropSupported
-                    ? 'bg-gradient-to-br from-emerald-50/70 via-white/85 to-teal-50/50 border-emerald-200/90'
-                    : 'bg-gradient-to-br from-amber-50/70 via-white/85 to-orange-50/50 border-amber-200/90'
-                }`}>
+                <div className={`p-4 rounded-2xl border shadow-2xs transition-all w-full backdrop-blur-md ring-1 ring-inset ring-white/60 hover:shadow-xs ${cropSupported
+                  ? 'bg-gradient-to-br from-emerald-50/70 via-white/85 to-teal-50/50 border-emerald-200/90'
+                  : 'bg-gradient-to-br from-amber-50/70 via-white/85 to-orange-50/50 border-amber-200/90'
+                  }`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800/70 flex items-center gap-1 mb-0.5">
@@ -1126,9 +1119,8 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                       <h3 className="text-base font-bold text-emerald-950 truncate">
                         {cropDisplay.display}
                       </h3>
-                      <p className={`text-xs font-medium mt-0.5 flex items-center gap-1 ${
-                        cropSupported ? 'text-emerald-700' : 'text-amber-700'
-                      }`}>
+                      <p className={`text-xs font-medium mt-0.5 flex items-center gap-1 ${cropSupported ? 'text-emerald-700' : 'text-amber-700'
+                        }`}>
                         <span>{aiStatusBadge.desc}</span>
                       </p>
                     </div>
@@ -1181,8 +1173,8 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                 ? Math.round(telemetry.weather.humidity)
                 : (typeof telemetry?.humidity === 'number' ? Math.round(telemetry.humidity) : null);
 
-              const soilMoistureVal = typeof telemetry?.soilMoisture === 'number'
-                ? Math.round(telemetry.soilMoisture)
+              const soilMoistureVal = typeof telemetry?.soilMoisture?.current === 'number'
+                ? Math.round(telemetry.soilMoisture.current)
                 : null;
 
               const telemetryTimestamp = telemetry?.timestamp
@@ -1634,13 +1626,12 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                     className="bg-white/75 backdrop-blur-md border border-emerald-100/70 rounded-2xl p-4 shadow-neumorphic ring-1 ring-inset ring-white/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 w-full min-w-0"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                        telemetryTimestamp === null
-                          ? 'bg-slate-300'
-                          : isTelemetryStale
-                            ? 'bg-amber-400'
-                            : 'bg-emerald-500'
-                      }`} />
+                      <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${telemetryTimestamp === null
+                        ? 'bg-slate-300'
+                        : isTelemetryStale
+                          ? 'bg-amber-400'
+                          : 'bg-emerald-500'
+                        }`} />
                       <div className="min-w-0">
                         <p className="text-xs font-bold text-emerald-950 truncate">
                           {telemetryTimestamp === null
@@ -1741,8 +1732,8 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                   description: existingHeatRisk?.description || (
                     currentTemp != null
                       ? (lang === 'hi'
-                          ? `वर्तमान तापमान (${currentTemp}°C) विन्यस्त फसल सीमा के भीतर है।`
-                          : `Current temperature (${currentTemp}°C) is within the configured crop range.`)
+                        ? `वर्तमान तापमान (${currentTemp}°C) विन्यस्त फसल सीमा के भीतर है।`
+                        : `Current temperature (${currentTemp}°C) is within the configured crop range.`)
                       : (lang === 'hi' ? 'तापमान सामान्य फसल सीमा के भीतर है।' : 'Temperature is within configured crop thresholds.')
                   ),
                 },
@@ -1964,11 +1955,10 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                           </div>
 
                           {climateWeather ? (
-                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border shadow-2xs inline-flex items-center gap-1.5 whitespace-nowrap ${
-                              climateWeatherStatus === 'live'
-                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                                : 'bg-amber-50 text-amber-800 border-amber-300'
-                            }`}>
+                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border shadow-2xs inline-flex items-center gap-1.5 whitespace-nowrap ${climateWeatherStatus === 'live'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                              : 'bg-amber-50 text-amber-800 border-amber-300'
+                              }`}>
                               <span className={`w-1.5 h-1.5 rounded-full ${climateWeatherStatus === 'live' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
                               <span>{climateWeatherStatus === 'live' ? 'Live' : 'Cached'}</span>
                             </span>
@@ -2190,11 +2180,10 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                                 {f.high} <span className="text-slate-400 font-semibold">/</span> {f.low}
                               </p>
                               <div className="mt-1.5">
-                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                                  f.pop > 30
-                                    ? 'bg-cyan-50 text-cyan-800 border-cyan-200'
-                                    : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                }`}>
+                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border ${f.pop > 30
+                                  ? 'bg-cyan-50 text-cyan-800 border-cyan-200'
+                                  : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                  }`}>
                                   {f.pop != null ? `${f.pop}% rain` : (f.rainChance || 'Dry')}
                                 </span>
                               </div>
@@ -2239,10 +2228,10 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                         const badgeClass = cond.severity === 'Critical'
                           ? 'bg-rose-50 text-rose-800 border-rose-300'
                           : cond.severity === 'High'
-                          ? 'bg-amber-50 text-amber-800 border-amber-300'
-                          : cond.severity === 'Moderate'
-                          ? 'bg-amber-50/70 text-amber-900 border-amber-200'
-                          : 'bg-emerald-50 text-emerald-800 border-emerald-200';
+                            ? 'bg-amber-50 text-amber-800 border-amber-300'
+                            : cond.severity === 'Moderate'
+                              ? 'bg-amber-50/70 text-amber-900 border-amber-200'
+                              : 'bg-emerald-50 text-emerald-800 border-emerald-200';
 
                         return (
                           <div
@@ -2392,7 +2381,7 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                 <div className="md:hidden">
                   <div className="bg-white/80 backdrop-blur-md border border-emerald-100/80 rounded-3xl p-5 sm:p-6 shadow-neumorphic ring-1 ring-inset ring-white/50 text-center">
                     {/* Top floating circular mint camera icon button */}
-                    <div 
+                    <div
                       onClick={handleCameraTrigger}
                       className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-800 border border-emerald-200/60 flex items-center justify-center mx-auto mb-4 cursor-pointer hover:bg-emerald-100 active:scale-95 transition-all shadow-xs group"
                       role="button"
@@ -2428,7 +2417,7 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                     ) : (
                       <div className="mt-6 border-2 border-dashed border-emerald-300/60 bg-emerald-50/30 p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4">
                         {/* Circular mint camera icon button inside dashed viewfinder */}
-                        <div 
+                        <div
                           onClick={handleCameraTrigger}
                           className="w-16 h-16 rounded-2xl bg-white text-emerald-700 border border-emerald-200 flex items-center justify-center cursor-pointer hover:bg-emerald-50 active:scale-95 transition-all shadow-sm group"
                           role="button"
@@ -2461,11 +2450,10 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                     <button
                       onClick={() => runGeminiAnalysis(imagePreview)}
                       disabled={diagnosing || !imagePreview}
-                      className={`mt-6 w-full py-4 rounded-full font-bold text-sm sm:text-base shadow-neumorphic transition-all duration-200 flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
-                        !imagePreview
-                          ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-                          : 'bg-emerald-900 hover:bg-emerald-800 text-white hover:-translate-y-0.5 active:scale-[0.98] cursor-pointer'
-                      }`}
+                      className={`mt-6 w-full py-4 rounded-full font-bold text-sm sm:text-base shadow-neumorphic transition-all duration-200 flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${!imagePreview
+                        ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                        : 'bg-emerald-900 hover:bg-emerald-800 text-white hover:-translate-y-0.5 active:scale-[0.98] cursor-pointer'
+                        }`}
                     >
                       {diagnosing ? (
                         <>
@@ -2501,7 +2489,7 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                 <div className="hidden md:block">
                   <div className="bg-white/80 backdrop-blur-md border border-emerald-100/80 rounded-3xl p-6 lg:p-8 shadow-neumorphic ring-1 ring-inset ring-white/50">
                     <div className="flex items-center gap-3 mb-6">
-                      <div 
+                      <div
                         onClick={handleCameraTrigger}
                         className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-800 border border-emerald-200/60 flex items-center justify-center cursor-pointer hover:bg-emerald-100 active:scale-95 transition-all shadow-xs group"
                         role="button"
@@ -2542,7 +2530,7 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                         ) : (
                           <div className="border-2 border-dashed border-emerald-300/60 bg-emerald-50/30 p-8 rounded-3xl flex flex-col items-center justify-center gap-4 aspect-[4/3]">
                             {/* Circular mint camera icon button in desktop empty state */}
-                            <div 
+                            <div
                               onClick={handleCameraTrigger}
                               className="w-20 h-20 rounded-2xl bg-white text-emerald-700 border border-emerald-200 flex items-center justify-center cursor-pointer hover:bg-emerald-50 hover:scale-105 active:scale-95 transition-all shadow-sm group"
                               role="button"
@@ -2574,11 +2562,10 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                         <button
                           onClick={() => runGeminiAnalysis(imagePreview)}
                           disabled={diagnosing || !imagePreview}
-                          className={`mt-4 w-full py-4 rounded-full font-bold text-base shadow-neumorphic transition-all duration-200 flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
-                            !imagePreview
-                              ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-                              : 'bg-emerald-900 hover:bg-emerald-800 text-white hover:-translate-y-0.5 active:scale-[0.98] cursor-pointer'
-                          }`}
+                          className={`mt-4 w-full py-4 rounded-full font-bold text-base shadow-neumorphic transition-all duration-200 flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${!imagePreview
+                            ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                            : 'bg-emerald-900 hover:bg-emerald-800 text-white hover:-translate-y-0.5 active:scale-[0.98] cursor-pointer'
+                            }`}
                         >
                           {diagnosing ? (
                             <>
