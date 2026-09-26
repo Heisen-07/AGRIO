@@ -173,7 +173,7 @@ export class HttpPollingAdapter {
   start(config, onData, onStatus) {
     this._onData = onData;
     this._onStatus = onStatus;
-    this._url = config?.url || '';
+    this._url = config?.url?.trim() || '/api/telemetry';
     this._farmId = config?.farmId || '';
     const interval = config?.intervalMs || 5000;
 

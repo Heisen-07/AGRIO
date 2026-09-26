@@ -40,7 +40,7 @@ const MODES = [
     icon: Globe,
     color: 'blue',
     needsUrl: true,
-    urlPlaceholder: 'http://192.168.4.1/api/telemetry',
+    urlPlaceholder: '/api/telemetry',
     urlLabel: 'Telemetry Endpoint URL',
   },
 ];
@@ -58,7 +58,7 @@ export default function HardwareConfigModal({ open, onClose }) {
   const { telemetryStatus, setTelemetrySource } = useFarm();
 
   const [selectedMode, setSelectedMode] = useState(telemetryStatus?.mode || 'simulated');
-  const [url, setUrl] = useState('');
+  const [url, setUrl] = useState('/api/telemetry');
   const [intervalMs, setIntervalMs] = useState(5000);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
@@ -70,7 +70,7 @@ export default function HardwareConfigModal({ open, onClose }) {
       // Load saved config from localStorage
       try {
         const saved = JSON.parse(localStorage.getItem('agrio_telemetry_config') || '{}');
-        setUrl(saved.url || '');
+        setUrl(saved.url || '/api/telemetry');
         setIntervalMs(saved.intervalMs || 5000);
       } catch {
         /* noop */
@@ -83,7 +83,7 @@ export default function HardwareConfigModal({ open, onClose }) {
     const config = {};
     const mode = MODES.find(m => m.id === selectedMode);
     if (mode?.needsUrl) {
-      config.url = url.trim();
+      config.url = url.trim() || (selectedMode === 'rest_poll' ? '/api/telemetry' : '');
       config.intervalMs = intervalMs;
     }
     setTelemetrySource(selectedMode, config);
@@ -91,7 +91,8 @@ export default function HardwareConfigModal({ open, onClose }) {
   };
 
   const handleTestConnection = async () => {
-    if (!url.trim()) {
+    const targetUrl = url.trim() || (selectedMode === 'rest_poll' ? '/api/telemetry' : '');
+    if (!targetUrl) {
       setTestResult({ ok: false, msg: 'Please enter a URL first' });
       return;
     }
@@ -109,7 +110,7 @@ export default function HardwareConfigModal({ open, onClose }) {
         setTestResult({ ok: true, msg: 'WebSocket connected successfully!' });
       } else {
         // HTTP test
-        const res = await fetch(url.trim(), { signal: AbortSignal.timeout(8000) });
+        const res = await fetch(targetUrl, { signal: AbortSignal.timeout(8000) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         const keys = Object.keys(data).slice(0, 5).join(', ');
@@ -221,13 +222,12 @@ export default function HardwareConfigModal({ open, onClose }) {
                     key={mode.id}
                     onClick={() => !mode.disabled && setSelectedMode(mode.id)}
                     disabled={mode.disabled}
-                    className={`w-full p-3 rounded-2xl border-2 flex items-center gap-3 transition-all text-left ${
-                      mode.disabled
-                        ? 'opacity-50 cursor-not-allowed border-gray-200 bg-gray-50/30'
-                        : isSelected
-                          ? colorMap[mode.color]
-                          : 'border-transparent bg-emerald-50/30 hover:bg-emerald-50/50'
-                    }`}
+                    className={`w-full p-3 rounded-2xl border-2 flex items-center gap-3 transition-all text-left ${mode.disabled
+                      ? 'opacity-50 cursor-not-allowed border-gray-200 bg-gray-50/30'
+                      : isSelected
+                        ? colorMap[mode.color]
+                        : 'border-transparent bg-emerald-50/30 hover:bg-emerald-50/50'
+                      }`}
                   >
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${iconColorMap[mode.color]}`}>
                       <Icon className="w-4.5 h-4.5" />
@@ -277,11 +277,10 @@ export default function HardwareConfigModal({ open, onClose }) {
                         <button
                           key={opt.value}
                           onClick={() => setIntervalMs(opt.value)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-                            intervalMs === opt.value
-                              ? 'bg-emerald-700 text-white shadow-sm'
-                              : 'bg-white text-emerald-700 hover:bg-emerald-100 border border-emerald-200/60'
-                          }`}
+                          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${intervalMs === opt.value
+                            ? 'bg-emerald-700 text-white shadow-sm'
+                            : 'bg-white text-emerald-700 hover:bg-emerald-100 border border-emerald-200/60'
+                            }`}
                         >
                           {opt.label}
                         </button>
@@ -294,11 +293,10 @@ export default function HardwareConfigModal({ open, onClose }) {
                 <button
                   onClick={handleTestConnection}
                   disabled={testing || !url.trim()}
-                  className={`w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
-                    testing || !url.trim()
-                      ? 'bg-emerald-100 text-emerald-400 cursor-not-allowed'
-                      : 'bg-white text-emerald-800 hover:bg-emerald-50 border border-emerald-200/60 active:scale-[0.98]'
-                  }`}
+                  className={`w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${testing || !url.trim()
+                    ? 'bg-emerald-100 text-emerald-400 cursor-not-allowed'
+                    : 'bg-white text-emerald-800 hover:bg-emerald-50 border border-emerald-200/60 active:scale-[0.98]'
+                    }`}
                 >
                   {testing ? (
                     <>
@@ -315,11 +313,10 @@ export default function HardwareConfigModal({ open, onClose }) {
 
                 {/* Test Result */}
                 {testResult && (
-                  <div className={`p-2.5 rounded-xl text-xs font-medium flex items-start gap-2 ${
-                    testResult.ok
-                      ? 'bg-emerald-100/80 text-emerald-800'
-                      : 'bg-red-100/80 text-red-800'
-                  }`}>
+                  <div className={`p-2.5 rounded-xl text-xs font-medium flex items-start gap-2 ${testResult.ok
+                    ? 'bg-emerald-100/80 text-emerald-800'
+                    : 'bg-red-100/80 text-red-800'
+                    }`}>
                     {testResult.ok
                       ? <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                       : <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
