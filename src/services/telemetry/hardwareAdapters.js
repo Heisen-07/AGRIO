@@ -215,12 +215,26 @@ export class HttpPollingAdapter {
       const res = await fetch(this._url, { signal: AbortSignal.timeout(8000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const raw = await res.json();
+
+      // Blynk isHardwareConnected returned false — ESP32 is offline
+      if (raw.hwOnline === false) {
+        this._error = raw.error || 'ESP32 hardware is offline';
+        this._onStatus?.({
+          connected: false,
+          mode: 'rest_poll',
+          lastPing: this._lastPing,
+          error: this._error,
+          hardwareOffline: true,
+        });
+        return;
+      }
+
       this._lastPing = Date.now();
       this._error = null;
       // All transports converge to the canonical single-zone schema
       const snapshot = normalizeTelemetry(raw, this._farmId, 'rest_poll');
       this._onData?.(snapshot);
-      this._onStatus?.({ connected: true, mode: 'rest_poll', lastPing: this._lastPing, error: null });
+      this._onStatus?.({ connected: true, mode: 'rest_poll', lastPing: this._lastPing, error: null, hardwareOffline: false });
     } catch (err) {
       this._error = err.message;
       this._onStatus?.({ connected: false, mode: 'rest_poll', lastPing: this._lastPing, error: this._error });

@@ -5,6 +5,7 @@ import {
   ChevronRight, Check, AlertCircle, Clock
 } from 'lucide-react';
 import { useFarm } from '../context/FarmContext';
+import { useLanguage } from '../context/LanguageContext';
 
 const MODES = [
   {
@@ -56,6 +57,7 @@ const INTERVAL_OPTIONS = [
 
 export default function HardwareConfigModal({ open, onClose }) {
   const { telemetryStatus, setTelemetrySource } = useFarm();
+  const { lang } = useLanguage();
 
   const [selectedMode, setSelectedMode] = useState(telemetryStatus?.mode || 'simulated');
   const [url, setUrl] = useState('/api/telemetry');
@@ -79,13 +81,47 @@ export default function HardwareConfigModal({ open, onClose }) {
     }
   }, [open, telemetryStatus?.mode]);
 
-  const handleApply = () => {
+  const [applying, setApplying] = useState(false);
+  const [applyError, setApplyError] = useState(null);
+
+  const handleApply = async () => {
     const config = {};
     const mode = MODES.find(m => m.id === selectedMode);
     if (mode?.needsUrl) {
       config.url = url.trim() || (selectedMode === 'rest_poll' ? '/api/telemetry' : '');
       config.intervalMs = intervalMs;
     }
+
+    setApplyError(null);
+
+    // For rest_poll, probe hardware online status before applying
+    if (selectedMode === 'rest_poll') {
+      setApplying(true);
+      const targetUrl = config.url || '/api/telemetry';
+      try {
+        const res = await fetch(targetUrl, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data.hwOnline === false) {
+          // Hardware offline! Do NOT treat the connection as successful.
+          setTelemetrySource(selectedMode, config);
+          setApplyError(lang === 'hi'
+            ? 'हार्डवेयर ऑफ़लाइन — ESP32 उपकरण ऑफ़लाइन है। कनेक्शन स्थापित नहीं हो सका।'
+            : 'Hardware Offline — ESP32 device is offline. Connection could not be established.');
+          setApplying(false);
+          return;
+        }
+      } catch (err) {
+        setTelemetrySource(selectedMode, config);
+        setApplyError(lang === 'hi'
+          ? `हार्डवेयर ऑफ़लाइन — कनेक्शन विफल: ${err.message}`
+          : `Hardware Offline — Connection failed: ${err.message}`);
+        setApplying(false);
+        return;
+      }
+      setApplying(false);
+    }
+
     setTelemetrySource(selectedMode, config);
     onClose();
   };
@@ -93,7 +129,7 @@ export default function HardwareConfigModal({ open, onClose }) {
   const handleTestConnection = async () => {
     const targetUrl = url.trim() || (selectedMode === 'rest_poll' ? '/api/telemetry' : '');
     if (!targetUrl) {
-      setTestResult({ ok: false, msg: 'Please enter a URL first' });
+      setTestResult({ ok: false, msg: lang === 'hi' ? 'कृपया पहले URL दर्ज करें' : 'Please enter a URL first' });
       return;
     }
     setTesting(true);
@@ -109,12 +145,23 @@ export default function HardwareConfigModal({ open, onClose }) {
         });
         setTestResult({ ok: true, msg: 'WebSocket connected successfully!' });
       } else {
-        // HTTP test
+        // HTTP test — also check hardware online status
         const res = await fetch(targetUrl, { signal: AbortSignal.timeout(8000) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        const keys = Object.keys(data).slice(0, 5).join(', ');
-        setTestResult({ ok: true, msg: `Connected! Response keys: ${keys}` });
+
+        if (data.hwOnline === false) {
+          // Server reachable but ESP32 hardware is offline
+          setTestResult({
+            ok: false,
+            msg: lang === 'hi'
+              ? 'हार्डवेयर ऑफ़लाइन — सर्वर पहुँच योग्य है, लेकिन ESP32 उपकरण ऑफ़लाइन है।'
+              : 'Hardware Offline — Server is reachable, but ESP32 device is offline.',
+          });
+        } else {
+          const keys = Object.keys(data).slice(0, 5).join(', ');
+          setTestResult({ ok: true, msg: `Connected! Response keys: ${keys}` });
+        }
       }
     } catch (err) {
       setTestResult({ ok: false, msg: err.message });
@@ -172,14 +219,18 @@ export default function HardwareConfigModal({ open, onClose }) {
 
           <div className="p-5 space-y-5">
             {/* Current Status Banner */}
-            <div className="flex items-center gap-3 p-3 bg-emerald-50/60 rounded-2xl">
+            <div className={`flex items-center gap-3 p-3 rounded-2xl ${telemetryStatus?.hardwareOffline ? 'bg-red-50/60' : 'bg-emerald-50/60'}`}>
               {React.createElement(statusIcon, { className: `w-5 h-5 ${statusColor} shrink-0` })}
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-bold text-emerald-950">
-                  {telemetryStatus?.connected ? 'Connected' : 'Disconnected'}
+                  {telemetryStatus?.hardwareOffline
+                    ? (lang === 'hi' ? 'हार्डवेयर ऑफ़लाइन' : 'Hardware Offline')
+                    : telemetryStatus?.connected ? 'Connected' : 'Disconnected'}
                   {' · '}
                   <span className="text-emerald-700/60 font-medium capitalize">
-                    {telemetryStatus?.mode?.replace('_', ' ')}
+                    {telemetryStatus?.hardwareOffline
+                      ? (lang === 'hi' ? 'सिम्युलेटेड फ़ॉलबैक' : 'Simulated Fallback')
+                      : telemetryStatus?.mode?.replace('_', ' ')}
                   </span>
                 </p>
                 {telemetryStatus?.error && (
@@ -191,7 +242,7 @@ export default function HardwareConfigModal({ open, onClose }) {
                   </p>
                 )}
               </div>
-              <Activity className="w-4 h-4 text-emerald-400 animate-pulse shrink-0" />
+              <Activity className={`w-4 h-4 shrink-0 ${telemetryStatus?.hardwareOffline ? 'text-red-400' : 'text-emerald-400 animate-pulse'}`} />
             </div>
 
             {/* Mode Selection */}
@@ -327,13 +378,38 @@ export default function HardwareConfigModal({ open, onClose }) {
               </div>
             )}
 
+            {/* Apply Error Banner */}
+            {applyError && (
+              <div className="p-3 rounded-2xl text-xs font-medium flex items-start gap-2.5 bg-red-100/90 text-red-900 border border-red-200 shadow-2xs">
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold">{lang === 'hi' ? 'हार्डवेयर ऑफ़लाइन' : 'Hardware Offline'}</p>
+                  <p className="text-[11px] text-red-800 mt-0.5 leading-relaxed">{applyError}</p>
+                </div>
+              </div>
+            )}
+
             {/* Apply Button */}
             <button
               onClick={handleApply}
-              className="w-full py-3.5 rounded-2xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-all"
+              disabled={applying}
+              className={`w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-all ${
+                applying
+                  ? 'bg-emerald-800/80 text-white/80 cursor-wait'
+                  : 'bg-emerald-800 hover:bg-emerald-900 text-white'
+              }`}
             >
-              <ChevronRight className="w-4 h-4" />
-              <span>Apply & Connect</span>
+              {applying ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>{lang === 'hi' ? 'कनेक्ट हो रहा है...' : 'Connecting...'}</span>
+                </>
+              ) : (
+                <>
+                  <ChevronRight className="w-4 h-4" />
+                  <span>{lang === 'hi' ? 'लागू करें और कनेक्ट करें' : 'Apply & Connect'}</span>
+                </>
+              )}
             </button>
           </div>
         </motion.div>

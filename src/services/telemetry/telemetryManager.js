@@ -35,6 +35,7 @@ class TelemetryManager {
     this._statusSubscribers = new Set();
     this._latestSnapshot = null;
     this._status = { connected: false, mode: 'simulated', lastPing: null, error: null };
+    this._simulatedFallback = null; // active only when hardware is offline
   }
 
   /**
@@ -81,6 +82,7 @@ class TelemetryManager {
    * Stop the active adapter.
    */
   stop() {
+    this._stopSimulatedFallback();
     if (this._adapter) {
       this._adapter.stop();
       this._adapter = null;
@@ -160,9 +162,49 @@ class TelemetryManager {
   }
 
   _handleStatus(status) {
-    this._status = status;
+    // When hardware adapter reports the ESP32 is offline, auto-start
+    // the existing simulated adapter as a fallback so telemetry keeps
+    // flowing but mark status clearly as hardware-offline + simulated.
+    if (status.hardwareOffline && this._mode !== 'simulated') {
+      this._startSimulatedFallback();
+      this._status = {
+        ...status,
+        mode: 'rest_poll',
+        hardwareOffline: true,
+        simulatedFallback: true,
+      };
+    } else {
+      // Hardware came back online or user is in simulated mode
+      if (this._simulatedFallback && status.connected) {
+        this._stopSimulatedFallback();
+      }
+      this._status = status;
+    }
     for (const cb of this._statusSubscribers) {
-      try { cb(status); } catch (e) { console.error('[TelemetryManager] status subscriber error:', e); }
+      try { cb(this._status); } catch (e) { console.error('[TelemetryManager] status subscriber error:', e); }
+    }
+  }
+
+  /** Start the simulated fallback adapter (does nothing if already running) */
+  _startSimulatedFallback() {
+    if (this._simulatedFallback) return;
+    this._simulatedFallback = new SimulatedAdapter();
+    this._simulatedFallback.start(
+      { ...this._config, mode: 'simulated' },
+      (snapshot) => {
+        // Tag as simulated-fallback so consumers can distinguish
+        snapshot.source = 'simulated';
+        this._handleData(snapshot);
+      },
+      () => { /* status updates come from the primary adapter, not fallback */ }
+    );
+  }
+
+  /** Stop and tear down the simulated fallback adapter */
+  _stopSimulatedFallback() {
+    if (this._simulatedFallback) {
+      this._simulatedFallback.stop();
+      this._simulatedFallback = null;
     }
   }
 
@@ -176,6 +218,7 @@ class TelemetryManager {
 
   _loadConfig() {
     try {
+      if (typeof localStorage === 'undefined') return null;
       const raw = localStorage.getItem(STORAGE_KEY);
       return raw ? JSON.parse(raw) : null;
     } catch {
@@ -185,6 +228,7 @@ class TelemetryManager {
 
   _saveConfig(config) {
     try {
+      if (typeof localStorage === 'undefined') return;
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         mode: config.mode,
         url: config.url || '',
@@ -198,4 +242,5 @@ class TelemetryManager {
 
 // Singleton instance — the whole app shares one manager
 const telemetryManager = new TelemetryManager();
+export { TelemetryManager };
 export default telemetryManager;

@@ -4,7 +4,7 @@ import {
   Droplets, CloudSun, AlertTriangle, CheckCircle, Radio,
   Wind, Thermometer, CloudRain, Sun, Upload, Camera, Sparkles, X, RefreshCw, Eye,
   Sprout, Home, Leaf, Cloud, Sliders, Bug, ShieldAlert, FlaskConical, Clock,
-  Menu, Bell, Globe, WifiOff, Navigation, BarChart3
+  Menu, Bell, Globe, WifiOff, Navigation, BarChart3, Power
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useFarm } from '../context/FarmContext';
@@ -402,6 +402,7 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
   const [navOpen, setNavOpen] = useState(false);
   const [showDashNotifs, setShowDashNotifs] = useState(false);
   const [showHardwareConfig, setShowHardwareConfig] = useState(false);
+  const [pumpActive, setPumpActive] = useState(false);
 
   // Real location name (replaces hardcoded "Punjab" when GPS or live weather detects real city)
   const detectedCity = weatherData?.current?.cityName;
@@ -413,10 +414,12 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
   // Connection indicator — honest sensor-source state (never conflate "simulated" with "offline")
   const isLiveFeed = telemetryStatus?.connected;
   const telemetryMode = telemetryStatus?.mode || 'simulated';
-  const sensorState = telemetryMode === 'simulated' ? 'simulated' : (isLiveFeed ? 'connected' : 'offline');
+  const isHwOffline = !!telemetryStatus?.hardwareOffline;
+  const sensorState = isHwOffline ? 'hardwareOffline' : telemetryMode === 'simulated' ? 'simulated' : (isLiveFeed ? 'connected' : 'offline');
   const sensorMeta = {
     connected: { label: t.sensorConnected, dot: 'bg-emerald-500 animate-pulse', chip: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
     simulated: { label: t.sensorSimulated, dot: 'bg-amber-400', chip: 'bg-amber-100 text-amber-800 border-amber-300' },
+    hardwareOffline: { label: t.sensorHardwareOffline || (lang === 'hi' ? 'हार्डवेयर ऑफ़लाइन' : 'Hardware Offline'), dot: 'bg-red-400', chip: 'bg-red-100 text-red-800 border-red-300' },
     offline: { label: t.sensorOffline, dot: 'bg-slate-300', chip: 'bg-slate-100 text-slate-600 border-slate-300' },
   }[sensorState];
 
@@ -1298,6 +1301,14 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                             Demo telemetry
                           </span>
                         </div>
+                      ) : sensorState === 'hardwareOffline' ? (
+                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-red-50 text-red-800 border border-red-300/80 shadow-2xs whitespace-nowrap">
+                          <span className="w-2 h-2 rounded-full bg-red-400" />
+                          <span>{lang === 'hi' ? 'हार्डवेयर ऑफ़लाइन' : 'Hardware Offline'}</span>
+                          <span className="text-[10px] text-red-600 font-semibold border-l border-red-200 pl-1.5 hidden xs:inline">
+                            {lang === 'hi' ? 'सिम्युलेटेड फ़ॉलबैक' : 'Simulated fallback'}
+                          </span>
+                        </div>
                       ) : (
                         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300/80 shadow-2xs whitespace-nowrap">
                           <span className="w-2 h-2 rounded-full bg-slate-400" />
@@ -1319,168 +1330,350 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                     </div>
                   </motion.div>
 
-                  {/* B. PRIMARY SOIL MOISTURE CARD (Dominant data card) */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.28, delay: 0.04 }}
-                    className="bg-white/85 backdrop-blur-md border border-emerald-100/80 rounded-3xl p-5 sm:p-7 lg:p-8 shadow-neumorphic ring-1 ring-inset ring-white/50 w-full min-w-0 transition-all duration-200"
-                  >
-                    {/* Card Header with Freshness Tag */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 mb-5 sm:mb-6">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shrink-0 shadow-sm text-white">
-                          <Droplets className="w-5 h-5" />
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="font-extrabold text-base sm:text-lg text-emerald-950 tracking-tight truncate">
-                            {lang === 'hi' ? 'खेत की मृदा नमी' : 'FIELD SOIL MOISTURE'}
-                          </h3>
-                          <p className="text-[11px] sm:text-xs text-emerald-700/70 font-medium truncate">
-                            {cropProfile?.name
-                              ? `${cropProfile.name} • ${t.fieldLabel || 'Field'} Root-Zone`
-                              : (t.currentField || 'Current Field Root-Zone')}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Freshness Badge */}
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {soilMoistureVal !== null ? (
-                          isTelemetryStale ? (
-                            <span className="px-3 py-1 rounded-full text-xs font-bold border shadow-2xs inline-flex items-center gap-1.5 bg-amber-50 text-amber-900 border-amber-300">
-                              <span className="w-2 h-2 rounded-full bg-amber-500" />
-                              <span>{lang === 'hi' ? `⚠ ${telemetryAgeMin} मि. पुराना` : `⚠ Updated ${telemetryAgeMin} min ago`}</span>
-                            </span>
-                          ) : (
-                            <span className="px-3 py-1 rounded-full text-xs font-bold border shadow-2xs inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 border-emerald-300">
-                              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                              <span>{lang === 'hi' ? `ताज़ा • ${lastUpdatedText}` : `Fresh • Updated ${lastUpdatedText}`}</span>
-                            </span>
-                          )
-                        ) : (
-                          <span className="px-3 py-1 rounded-full text-xs font-bold border shadow-2xs inline-flex items-center gap-1.5 bg-slate-100 text-slate-600 border-slate-300">
-                            <WifiOff className="w-3.5 h-3.5 text-slate-400" />
-                            <span>{lang === 'hi' ? 'डेटा उपलब्ध नहीं' : 'No data available'}</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Card Body: Visual Ring + Large Numbers + Status */}
-                    <div className="bg-white/90 backdrop-blur-md border border-emerald-100/70 rounded-2xl sm:rounded-3xl p-5 sm:p-7 shadow-neumorphic ring-1 ring-inset ring-white/60 flex flex-col md:flex-row items-center gap-6 lg:gap-10 w-full min-w-0">
-                      {/* Left: Circular visualization */}
-                      <div className="shrink-0 flex items-center justify-center">
-                        {soilMoistureVal !== null ? (
-                          <SoilMoistureRing
-                            percentage={soilMoistureVal}
-                            size={120}
-                            strokeWidth={10}
-                            bare={true}
-                            statusText={moistureStatusText}
-                            strokeColor={statusColors.stroke}
-                            trackColor={statusColors.track}
-                            statusColor={statusColors.ringText}
-                          />
-                        ) : (
-                          <div className="w-[120px] h-[120px] rounded-full bg-slate-50 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400">
-                            <WifiOff className="w-8 h-8 mb-1" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider">Offline</span>
+                  {/* B. PRIMARY SECTION: SOIL MOISTURE (LEFT) + WATER PUMP CONTROL (RIGHT) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 w-full min-w-0 items-stretch">
+                    {/* Left: Primary Soil Moisture Card */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.28, delay: 0.04 }}
+                      className="bg-gradient-to-b from-white/80 via-white/70 to-emerald-50/40 backdrop-blur-xl border border-emerald-200/80 rounded-3xl p-5 sm:p-7 lg:p-8 shadow-glass ring-1 ring-inset ring-white/90 w-full min-w-0 transition-all duration-200 flex flex-col justify-between"
+                    >
+                      {/* Card Header with Freshness Tag */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 mb-5 sm:mb-6">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shrink-0 shadow-sm text-white">
+                            <Droplets className="w-5 h-5" />
                           </div>
-                        )}
+                          <div className="min-w-0">
+                            <h3 className="font-extrabold text-base sm:text-lg text-emerald-950 tracking-tight truncate">
+                              {lang === 'hi' ? 'खेत की मृदा नमी' : 'FIELD SOIL MOISTURE'}
+                            </h3>
+                            <p className="text-[11px] sm:text-xs text-emerald-700/70 font-medium truncate">
+                              {cropProfile?.name
+                                ? `${cropProfile.name} • ${t.fieldLabel || 'Field'} Root-Zone`
+                                : (t.currentField || 'Current Field Root-Zone')}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Freshness Badge */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {soilMoistureVal !== null ? (
+                            sensorState === 'hardwareOffline' ? (
+                              <span className="px-3 py-1 rounded-full text-xs font-bold border shadow-2xs inline-flex items-center gap-1.5 bg-red-50 text-red-800 border-red-300">
+                                <span className="w-2 h-2 rounded-full bg-red-400" />
+                                <span>{lang === 'hi' ? `हार्डवेयर ऑफ़लाइन • ${lastUpdatedText}` : `Hardware Offline • ${lastUpdatedText}`}</span>
+                              </span>
+                            ) : isTelemetryStale ? (
+                              <span className="px-3 py-1 rounded-full text-xs font-bold border shadow-2xs inline-flex items-center gap-1.5 bg-amber-50 text-amber-900 border-amber-300">
+                                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                                <span>{lang === 'hi' ? `⚠ ${telemetryAgeMin} मि. पुराना` : `⚠ Updated ${telemetryAgeMin} min ago`}</span>
+                              </span>
+                            ) : sensorState === 'connected' ? (
+                              <span className="px-3 py-1 rounded-full text-xs font-bold border shadow-2xs inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 border-emerald-300">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                                <span>{lang === 'hi' ? `ताज़ा • ${lastUpdatedText}` : `Fresh • Updated ${lastUpdatedText}`}</span>
+                              </span>
+                            ) : (
+                              <span className="px-3 py-1 rounded-full text-xs font-bold border shadow-2xs inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 border-amber-300">
+                                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                                <span>{lang === 'hi' ? `सिम्युलेटेड • ${lastUpdatedText}` : `Simulated • ${lastUpdatedText}`}</span>
+                              </span>
+                            )
+                          ) : (
+                            <span className="px-3 py-1 rounded-full text-xs font-bold border shadow-2xs inline-flex items-center gap-1.5 bg-slate-100 text-slate-600 border-slate-300">
+                              <WifiOff className="w-3.5 h-3.5 text-slate-400" />
+                              <span>{lang === 'hi' ? 'डेटा उपलब्ध नहीं' : 'No data available'}</span>
+                            </span>
+                          )}
+                        </div>
                       </div>
 
-                      {/* Right: Values, status & target details */}
-                      <div className="flex-1 min-w-0 w-full text-center md:text-left">
-                        {soilMoistureVal !== null ? (
-                          <>
-                            <div className="flex flex-col md:flex-row md:items-baseline gap-2 md:gap-4 justify-center md:justify-start">
-                              <p className="text-5xl sm:text-6xl font-extrabold text-emerald-950 tracking-tight leading-none">
-                                {soilMoistureVal}
-                                <span className="text-2xl sm:text-3xl font-bold text-emerald-600/70 ml-1">%</span>
+                      {/* Card Body: Visual Ring + Large Numbers + Status */}
+                      <div className="bg-white/95 backdrop-blur-md border border-emerald-100/90 rounded-2xl sm:rounded-3xl p-5 sm:p-7 shadow-sm ring-1 ring-inset ring-white/80 flex flex-col md:flex-row items-center gap-6 lg:gap-10 w-full min-w-0">
+                        {/* Left: Circular visualization */}
+                        <div className="shrink-0 flex items-center justify-center">
+                          {soilMoistureVal !== null ? (
+                            <SoilMoistureRing
+                              percentage={soilMoistureVal}
+                              size={120}
+                              strokeWidth={10}
+                              bare={true}
+                              statusText={moistureStatusText}
+                              strokeColor={statusColors.stroke}
+                              trackColor={statusColors.track}
+                              statusColor={statusColors.ringText}
+                            />
+                          ) : (
+                            <div className="w-[120px] h-[120px] rounded-full bg-slate-50 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400">
+                              <WifiOff className="w-8 h-8 mb-1" />
+                              <span className="text-[10px] font-bold uppercase tracking-wider">Offline</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Right: Values, status & target details */}
+                        <div className="flex-1 min-w-0 w-full text-center md:text-left">
+                          {soilMoistureVal !== null ? (
+                            <>
+                              <div className="flex flex-col md:flex-row md:items-baseline gap-2 md:gap-4 justify-center md:justify-start">
+                                <p className="text-5xl sm:text-6xl font-extrabold text-emerald-950 tracking-tight leading-none">
+                                  {soilMoistureVal}
+                                  <span className="text-2xl sm:text-3xl font-bold text-emerald-600/70 ml-1">%</span>
+                                </p>
+                                {moistureStatusText && (
+                                  <span className={`self-center md:self-auto px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider border shadow-2xs whitespace-nowrap ${statusColors.bg} ${statusColors.text} ${statusColors.border}`}>
+                                    {moistureStatusText}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="mt-3 flex items-center justify-center md:justify-start gap-3 flex-wrap text-xs text-slate-600 font-medium">
+                                <span className="font-semibold text-emerald-900/80">
+                                  {lang === 'hi'
+                                    ? `लक्ष्य सीमा: ${targetMin}–${targetMax}%`
+                                    : `Target band ${targetMin}–${targetMax}%`}
+                                </span>
+                                <span className="text-slate-300">•</span>
+                                <span className="text-slate-500">
+                                  {lang === 'hi' ? `अपडेट: ${lastUpdatedText}` : `Updated ${lastUpdatedText}`}
+                                </span>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="py-2">
+                              <p className="text-2xl sm:text-3xl font-bold text-slate-700">
+                                {lang === 'hi' ? 'कोई डेटा उपलब्ध नहीं' : 'No data available'}
                               </p>
-                              {moistureStatusText && (
-                                <span className={`self-center md:self-auto px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider border shadow-2xs whitespace-nowrap ${statusColors.bg} ${statusColors.text} ${statusColors.border}`}>
-                                  {moistureStatusText}
+                              <p className="text-xs sm:text-sm text-slate-500 mt-1.5 font-medium">
+                                {lang === 'hi'
+                                  ? 'लाइव रीडिंग देखने के लिए सेंसर नोड कनेक्ट करें।'
+                                  : 'Connect the sensor to view live readings.'}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Progress Band with Target Range Marker */}
+                          <div className="mt-5 pt-4 border-t border-emerald-100/60 w-full min-w-0">
+                            <div className="flex items-center justify-between gap-2 text-xs font-semibold text-slate-600 mb-2 flex-wrap">
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                                <span>{lang === 'hi' ? `लक्ष्य बैंड ${targetMin}–${targetMax}%` : `Target band ${targetMin}–${targetMax}%`}</span>
+                              </span>
+                              {soilMoistureVal !== null && (
+                                <span className="text-emerald-950 font-bold text-xs">
+                                  {lang === 'hi' ? `वर्तमान मान: ${soilMoistureVal}%` : `Reading: ${soilMoistureVal}%`}
                                 </span>
                               )}
                             </div>
 
-                            <div className="mt-3 flex items-center justify-center md:justify-start gap-3 flex-wrap text-xs text-slate-600 font-medium">
-                              <span className="font-semibold text-emerald-900/80">
-                                {lang === 'hi'
-                                  ? `लक्ष्य सीमा: ${targetMin}–${targetMax}%`
-                                  : `Target band ${targetMin}–${targetMax}%`}
-                              </span>
-                              <span className="text-slate-300">•</span>
-                              <span className="text-slate-500">
-                                {lang === 'hi' ? `अपडेट: ${lastUpdatedText}` : `Updated ${lastUpdatedText}`}
-                              </span>
-                            </div>
-                          </>
-                        ) : (
-                          <div className="py-2">
-                            <p className="text-2xl sm:text-3xl font-bold text-slate-700">
-                              {lang === 'hi' ? 'कोई डेटा उपलब्ध नहीं' : 'No data available'}
-                            </p>
-                            <p className="text-xs sm:text-sm text-slate-500 mt-1.5 font-medium">
-                              {lang === 'hi'
-                                ? 'लाइव रीडिंग देखने के लिए सेंसर नोड कनेक्ट करें।'
-                                : 'Connect the sensor to view live readings.'}
-                            </p>
-                          </div>
-                        )}
-
-                        {/* Progress Band with Target Range Marker */}
-                        <div className="mt-5 pt-4 border-t border-emerald-100/60 w-full min-w-0">
-                          <div className="flex items-center justify-between gap-2 text-xs font-semibold text-slate-600 mb-2 flex-wrap">
-                            <span className="flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                              <span>{lang === 'hi' ? `लक्ष्य बैंड ${targetMin}–${targetMax}%` : `Target band ${targetMin}–${targetMax}%`}</span>
-                            </span>
-                            {soilMoistureVal !== null && (
-                              <span className="text-emerald-950 font-bold text-xs">
-                                {lang === 'hi' ? `वर्तमान मान: ${soilMoistureVal}%` : `Reading: ${soilMoistureVal}%`}
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="relative h-3 rounded-full bg-slate-100 border border-slate-200/80 overflow-visible w-full min-w-0">
-                            {/* Critical low zone */}
-                            <div
-                              className="absolute inset-y-0 left-0 bg-rose-200/70 rounded-l-full"
-                              style={{ width: `${clampVal(criticalLow)}%` }}
-                              title={`Critical Low: <${criticalLow}%`}
-                            />
-                            {/* Target optimal band */}
-                            <div
-                              className="absolute inset-y-0 bg-emerald-200/90 border-x border-emerald-400/60"
-                              style={{
-                                left: `${clampVal(targetMin)}%`,
-                                width: `${clampVal(targetMax) - clampVal(targetMin)}%`,
-                              }}
-                              title={`Target: ${targetMin}% - ${targetMax}%`}
-                            />
-                            {/* Marker dot */}
-                            {soilMoistureVal !== null && (
+                            <div className="relative h-3 rounded-full bg-slate-100 border border-slate-200/80 overflow-visible w-full min-w-0">
+                              {/* Critical low zone */}
                               <div
-                                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-emerald-950 border-2 border-white shadow-md z-10 transition-all duration-300"
-                                style={{ left: `${clampVal(soilMoistureVal)}%` }}
+                                className="absolute inset-y-0 left-0 bg-rose-200/70 rounded-l-full"
+                                style={{ width: `${clampVal(criticalLow)}%` }}
+                                title={`Critical Low: <${criticalLow}%`}
                               />
-                            )}
-                          </div>
+                              {/* Target optimal band */}
+                              <div
+                                className="absolute inset-y-0 bg-emerald-200/90 border-x border-emerald-400/60"
+                                style={{
+                                  left: `${clampVal(targetMin)}%`,
+                                  width: `${clampVal(targetMax) - clampVal(targetMin)}%`,
+                                  }}
+                                title={`Target: ${targetMin}% - ${targetMax}%`}
+                              />
+                              {/* Marker dot */}
+                              {soilMoistureVal !== null && (
+                                <div
+                                  className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-emerald-950 border-2 border-white shadow-md z-10 transition-all duration-300"
+                                  style={{ left: `${clampVal(soilMoistureVal)}%` }}
+                                />
+                              )}
+                            </div>
 
-                          <div className="flex justify-between items-center text-[10px] text-slate-500 font-semibold mt-2 px-0.5">
-                            <span>0%</span>
-                            <span className="text-emerald-700 font-bold uppercase tracking-wider">
-                              {lang === 'hi' ? 'इष्टतम नमी क्षेत्र' : 'Optimal Zone'}
-                            </span>
-                            <span>100%</span>
+                            <div className="flex justify-between items-center text-[10px] text-slate-500 font-semibold mt-2 px-0.5">
+                              <span>0%</span>
+                              <span className="text-emerald-700 font-bold uppercase tracking-wider">
+                                {lang === 'hi' ? 'इष्टतम नमी क्षेत्र' : 'Optimal Zone'}
+                              </span>
+                              <span>100%</span>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  </motion.div>
+                    </motion.div>
+
+                    {/* Right: Water Pump ON/OFF Control Card */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.28, delay: 0.06 }}
+                      className="bg-gradient-to-b from-white/80 via-white/70 to-emerald-50/40 backdrop-blur-xl border border-emerald-200/80 rounded-3xl p-5 sm:p-7 lg:p-8 shadow-glass ring-1 ring-inset ring-white/90 w-full min-w-0 transition-all duration-200 flex flex-col justify-between"
+                    >
+                      {/* Card Header */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 mb-5 sm:mb-6">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-sm text-white transition-all duration-300 ${
+                            pumpActive
+                              ? 'bg-gradient-to-br from-emerald-500 to-teal-700 shadow-emerald-600/20'
+                              : 'bg-gradient-to-br from-slate-600 to-slate-800 shadow-slate-900/10'
+                          }`}>
+                            <Power className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="font-extrabold text-base sm:text-lg text-emerald-950 tracking-tight truncate">
+                              {lang === 'hi' ? 'जल पंप नियंत्रण' : 'WATER PUMP CONTROL'}
+                            </h3>
+                            <p className="text-[11px] sm:text-xs text-emerald-700/70 font-medium truncate">
+                              {cropProfile?.name
+                                ? `${cropProfile.name} • ${lang === 'hi' ? 'ड्रिप सिंचाई लाइन' : 'Drip Irrigation Line'}`
+                                : (lang === 'hi' ? 'खेत सिंचाई लाइन' : 'Field Irrigation Line')}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Pump Status Badge */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {pumpActive ? (
+                            <span className="px-3 py-1 rounded-full text-xs font-bold border shadow-2xs inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 border-emerald-300">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                              <span>{lang === 'hi' ? 'सक्रिय • पंप चालू' : 'Active • Pump ON'}</span>
+                            </span>
+                          ) : (
+                            <span className="px-3 py-1 rounded-full text-xs font-bold border shadow-2xs inline-flex items-center gap-1.5 bg-slate-100 text-slate-600 border-slate-300">
+                              <span className="w-2 h-2 rounded-full bg-slate-400" />
+                              <span>{lang === 'hi' ? 'स्टैंडबाय • पंप बंद' : 'Standby • Pump OFF'}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Card Body: Radio/Toggle Control + Flow Animation + Status */}
+                      <div className="bg-white/95 backdrop-blur-md border border-emerald-100/90 rounded-2xl sm:rounded-3xl p-5 sm:p-7 shadow-sm ring-1 ring-inset ring-white/80 flex flex-col justify-between w-full min-w-0 flex-1">
+                        {/* 1. Radio / Toggle Control Group */}
+                        <div className="w-full min-w-0">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500">
+                              {lang === 'hi' ? 'पंप स्विच (रेडियो नियंत्रण)' : 'PUMP SWITCH (RADIO CONTROL)'}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                              {lang === 'hi' ? 'डेमो सिमुलेशन' : 'SIMULATED DEMO'}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200/80 shadow-inner">
+                            {/* OFF Option */}
+                            <button
+                              type="button"
+                              onClick={() => setPumpActive(false)}
+                              className={`relative flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl font-extrabold text-xs sm:text-sm transition-all duration-200 cursor-pointer ${
+                                !pumpActive
+                                  ? 'bg-white text-rose-700 shadow-sm border border-slate-200/60 ring-1 ring-rose-500/20'
+                                  : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
+                              }`}
+                            >
+                              <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center border-2 ${
+                                !pumpActive ? 'border-rose-600 bg-rose-600' : 'border-slate-400 bg-transparent'
+                              }`}>
+                                {!pumpActive && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                              </span>
+                              <span>{lang === 'hi' ? 'बंद • OFF' : 'OFF'}</span>
+                            </button>
+
+                            {/* ON Option */}
+                            <button
+                              type="button"
+                              onClick={() => setPumpActive(true)}
+                              className={`relative flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl font-extrabold text-xs sm:text-sm transition-all duration-200 cursor-pointer ${
+                                pumpActive
+                                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-700/20'
+                                  : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
+                              }`}
+                            >
+                              <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center border-2 ${
+                                pumpActive ? 'border-white bg-white' : 'border-slate-400 bg-transparent'
+                              }`}>
+                                {pumpActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />}
+                              </span>
+                              <span>{lang === 'hi' ? 'चालू • ON' : 'ON'}</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* 2. Visual State Banner */}
+                        <div className={`my-4 p-4 rounded-2xl border transition-all duration-300 flex items-center gap-4 ${
+                          pumpActive
+                            ? 'bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/60 border-emerald-200/80 shadow-xs'
+                            : 'bg-gradient-to-br from-slate-50/80 via-white to-slate-100/50 border-slate-200/80'
+                        }`}>
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border transition-all duration-300 ${
+                            pumpActive
+                              ? 'bg-emerald-500/15 border-emerald-400/40 text-emerald-600 shadow-sm shadow-emerald-500/10'
+                              : 'bg-slate-100 border-slate-200 text-slate-400'
+                          }`}>
+                            <Power className={`w-6 h-6 transition-all duration-300 ${pumpActive ? 'text-emerald-600 scale-110' : 'text-slate-400'}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-extrabold text-emerald-950 truncate">
+                              {pumpActive
+                                ? (lang === 'hi' ? 'पंप मोटर सक्रिय — जल प्रवाह जारी' : 'Water Pump Active — Flowing')
+                                : (lang === 'hi' ? 'पंप मोटर बंद — स्टैंडबाय' : 'Water Pump Standby — Valve Closed')}
+                            </p>
+                            <p className="text-[11px] text-slate-500 font-medium mt-0.5 truncate">
+                              {pumpActive
+                                ? (lang === 'hi' ? 'अनुमानित प्रवाह: 12.5 लीटर/मिनट • दबाव सामान्य' : 'Estimated flow: 12.5 L/min • Pressure normal')
+                                : (lang === 'hi' ? 'सिंचाई बंद है • स्विच द्वारा चालू करें' : 'Irrigation idle • Ready for trigger')}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* 3. Bottom Telemetry Sync & Status Band */}
+                        <div className="mt-2 pt-4 border-t border-emerald-100/60 w-full min-w-0">
+                          <div className="flex items-center justify-between gap-2 text-xs font-semibold text-slate-600 mb-2 flex-wrap">
+                            <span className="flex items-center gap-1.5">
+                              <span className={`w-2 h-2 rounded-full ${
+                                soilMoistureVal !== null && soilMoistureVal < targetMin
+                                  ? 'bg-amber-500 animate-pulse'
+                                  : 'bg-emerald-500'
+                              }`} />
+                              <span className="font-bold text-emerald-950">
+                                {soilMoistureVal !== null && soilMoistureVal < targetMin
+                                  ? (lang === 'hi' ? 'सुझाव: सिंचाई आवश्यक (नमी कम)' : 'Advisory: Irrigation Recommended')
+                                  : (lang === 'hi' ? 'सुझाव: नमी स्तर पर्याप्त है' : 'Advisory: Moisture Sufficient')}
+                              </span>
+                            </span>
+                            <span className="text-emerald-950 font-bold text-xs">
+                              {pumpActive
+                                ? (lang === 'hi' ? 'स्थिति: चालू' : 'Status: ON')
+                                : (lang === 'hi' ? 'स्थिति: बंद' : 'Status: OFF')}
+                            </span>
+                          </div>
+
+                          <div className="relative h-3 rounded-full bg-slate-100 border border-slate-200/80 overflow-hidden w-full min-w-0">
+                            <div
+                              className={`h-full transition-all duration-500 rounded-full ${
+                                pumpActive
+                                  ? 'w-full bg-gradient-to-r from-teal-500 via-emerald-500 to-sky-500 animate-pulse'
+                                  : 'w-0 bg-slate-300'
+                              }`}
+                            />
+                          </div>
+
+                          <div className="flex justify-between items-center text-[10px] text-slate-500 font-semibold mt-2 px-0.5">
+                            <span>{lang === 'hi' ? 'मैनुअल स्विच' : 'Manual Switch'}</span>
+                            <span className={pumpActive ? 'text-emerald-700 font-bold uppercase tracking-wider' : 'text-slate-400 font-medium'}>
+                              {pumpActive
+                                ? (lang === 'hi' ? '● पंप मोटर चालू' : '● Pump Motor Running')
+                                : (lang === 'hi' ? '○ मोटर बंद' : '○ Motor Off')}
+                            </span>
+                            <span>{lang === 'hi' ? 'डेमो सिमुलेशन' : 'Simulated'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  </div>
 
                   {/* C. ENVIRONMENTAL METRICS (Three compact cards) */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 w-full min-w-0">
@@ -1502,7 +1695,7 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                         </div>
                         {sensorTemp !== null ? (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200/60 whitespace-nowrap">
-                            {sensorState === 'connected' ? 'Live' : 'Simulated'}
+                            {sensorState === 'connected' ? 'Live' : sensorState === 'hardwareOffline' ? 'Simulated (Offline)' : 'Simulated'}
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200 whitespace-nowrap">
@@ -1522,7 +1715,7 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                         )}
                         <p className="text-[11px] text-slate-500 font-medium mt-1 truncate">
                           {sensorTemp !== null
-                            ? (sensorState === 'connected' ? 'Live ambient temperature' : 'Simulated field reading')
+                            ? (sensorState === 'connected' ? 'Live ambient temperature' : sensorState === 'hardwareOffline' ? 'Simulated — hardware offline' : 'Simulated field reading')
                             : 'Connect sensor to view live readings'}
                         </p>
                       </div>
@@ -1546,7 +1739,7 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                         </div>
                         {sensorHumidity !== null ? (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-sky-800 border border-sky-200/60 whitespace-nowrap">
-                            {sensorState === 'connected' ? 'Live' : 'Simulated'}
+                            {sensorState === 'connected' ? 'Live' : sensorState === 'hardwareOffline' ? 'Simulated (Offline)' : 'Simulated'}
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200 whitespace-nowrap">
@@ -1566,7 +1759,7 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                         )}
                         <p className="text-[11px] text-slate-500 font-medium mt-1 truncate">
                           {sensorHumidity !== null
-                            ? (sensorState === 'connected' ? 'Live relative humidity' : 'Simulated relative humidity')
+                            ? (sensorState === 'connected' ? 'Live relative humidity' : sensorState === 'hardwareOffline' ? 'Simulated — hardware offline' : 'Simulated relative humidity')
                             : 'Connect sensor to view live readings'}
                         </p>
                       </div>
@@ -1602,17 +1795,21 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                           <span className="truncate">
                             {sensorState === 'connected'
                               ? 'Connected'
-                              : sensorState === 'simulated'
-                                ? 'Simulated'
-                                : 'Offline'}
+                              : sensorState === 'hardwareOffline'
+                                ? (lang === 'hi' ? 'हार्डवेयर ऑफ़लाइन' : 'Hardware Offline')
+                                : sensorState === 'simulated'
+                                  ? 'Simulated'
+                                  : 'Offline'}
                           </span>
                         </p>
                         <p className="text-[11px] text-slate-500 font-medium mt-1 truncate">
                           {sensorState === 'connected'
                             ? 'ESP32 Telemetry active'
-                            : sensorState === 'simulated'
-                              ? 'Demo telemetry stream'
-                              : 'No live sensor node'}
+                            : sensorState === 'hardwareOffline'
+                              ? (lang === 'hi' ? 'ESP32 ऑफ़लाइन — सिम्युलेटेड डेटा' : 'ESP32 offline — simulated fallback')
+                              : sensorState === 'simulated'
+                                ? 'Demo telemetry stream'
+                                : 'No live sensor node'}
                         </p>
                       </div>
                     </motion.div>
@@ -2709,7 +2906,7 @@ export default function Dashboard({ activeTab, setActiveTab, setActiveView }) {
                 telemetryHistory={telemetryHistory}
                 diagnosisHistory={diagnosisHistory}
                 currentTelemetry={telemetry}
-                telemetryStatus={telemetryStatus}
+                telemetryStatus={sensorState}
                 currentWeather={weatherData}
                 onNavigateTab={setActiveTab}
                 t={t}

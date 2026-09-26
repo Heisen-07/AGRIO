@@ -322,7 +322,7 @@ export default function AnalyticsView({
   }, [currentWeather, telemetryPoints]);
 
   const isSimulated = useMemo(() => {
-    if (telemetryStatus === 'simulated') return true;
+    if (telemetryStatus === 'simulated' || telemetryStatus === 'hardwareOffline') return true;
     return telemetryPoints.some((p) => p.source === 'simulated');
   }, [telemetryStatus, telemetryPoints]);
 
@@ -484,6 +484,11 @@ export default function AnalyticsView({
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span>ESP32 Hardware</span>
+                </span>
+              ) : telemetryStatus === 'hardwareOffline' ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-900 border border-red-300">
+                  <span className="w-2 h-2 rounded-full bg-red-400" />
+                  <span>Hardware Offline</span>
                 </span>
               ) : isSimulated ? (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
